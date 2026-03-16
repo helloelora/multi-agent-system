@@ -6,6 +6,7 @@
 
 """
 RobotMission model: manages the grid, agents, waste, and game logic.
+Includes waste mutation, energy tracking, difficulty ramping, and communication.
 """
 
 import random
@@ -14,6 +15,10 @@ from src.config import (
     GRID_COLS, GRID_ROWS, ZONE_1_END, ZONE_2_END,
     RADIATION_SPAWN_COUNT, RADIATION_SPAWN_RAMP,
     GREEN_TO_YELLOW_COST, YELLOW_TO_RED_COST,
+    WASTE_MUTATION_ENABLED, WASTE_MUTATION_GREEN_TICKS, WASTE_MUTATION_YELLOW_TICKS,
+    ENERGY_ENABLED, AGENT_MAX_ENERGY,
+    DIFFICULTY_BONUS_INTERVAL, DIFFICULTY_BONUS_AMOUNT, Z2_SPAWN_AFTER_TICK,
+    COMMUNICATION_ENABLED,
 )
 from src.objects import Waste, Radioactivity, WasteDisposalZone
 from src.agents import (
@@ -34,6 +39,11 @@ class RobotMission:
         self.spawn_accumulator = 0.0
         self.events = []  # list of (event_type, pos, data) for visual effects
 
+        # Communication: message board for inter-agent messaging
+        self.message_board = []   # messages posted this tick, delivered next tick
+        self._pending_messages = []  # buffer for next tick delivery
+        self.total_messages_sent = 0
+
         # Grid data: each cell can hold multiple objects
         self.radioactivity = {}   # (x,y) -> Radioactivity
         self.waste_map = {}       # (x,y) -> list[Waste]
@@ -49,6 +59,8 @@ class RobotMission:
             "yellow_waste": [],
             "red_waste": [],
             "waste_disposed": [],
+            "avg_energy": [],
+            "messages_sent": [],
         }
 
         self._setup()
@@ -71,7 +83,7 @@ class RobotMission:
         for _ in range(_cfg.INITIAL_GREEN_WASTE):
             x = random.randint(0, ZONE_1_END - 1)
             y = random.randint(0, GRID_ROWS - 1)
-            w = Waste(x, y, "green")
+            w = Waste(x, y, "green", created_at=0)
             self.waste_map.setdefault((x, y), []).append(w)
 
         # Create robots
@@ -101,6 +113,43 @@ class RobotMission:
         elif col < ZONE_2_END:
             return 2
         return 3
+
+    # -- Communication ---------------------------------------------------------
+
+    def _deliver_messages(self):
+        """Deliver pending messages to agent mailboxes."""
+        if not COMMUNICATION_ENABLED:
+            return
+        # Deliver messages from previous tick
+        for msg in self._pending_messages:
+            for robot in self.robots:
+                if robot.agent_id != msg["from"]:
+                    robot.mailbox.append(msg)
+        self._pending_messages.clear()
+        # Move current tick messages to pending for next tick delivery
+        self._pending_messages = list(self.message_board)
+        self.total_messages_sent += len(self.message_board)
+        self.message_board.clear()
+
+    # -- Waste Mutation --------------------------------------------------------
+
+    def _mutate_waste(self):
+        """Mutate waste that has been sitting on the grid too long."""
+        if not WASTE_MUTATION_ENABLED:
+            return
+        mutations = []
+        for pos, wastes in list(self.waste_map.items()):
+            for w in wastes:
+                age = self.tick - w.created_at
+                if w.waste_type == "green" and age >= WASTE_MUTATION_GREEN_TICKS:
+                    mutations.append((pos, w, "yellow"))
+                elif w.waste_type == "yellow" and age >= WASTE_MUTATION_YELLOW_TICKS:
+                    mutations.append((pos, w, "red"))
+
+        for pos, w, new_type in mutations:
+            w.waste_type = new_type
+            w.created_at = self.tick  # reset timer for further mutation
+            self.events.append(("mutate", pos, new_type))
 
     # -- Percepts --------------------------------------------------------------
 
@@ -214,7 +263,7 @@ class RobotMission:
 
                 for wtype in to_drop:
                     agent.inventory.remove(wtype)
-                    waste = Waste(pos[0], pos[1], wtype)
+                    waste = Waste(pos[0], pos[1], wtype, created_at=self.tick)
                     self.waste_map.setdefault(pos, []).append(waste)
 
         return self.get_percepts(agent)
@@ -229,15 +278,36 @@ class RobotMission:
 
         self.tick += 1
 
+        # Deliver messages from previous tick
+        self._deliver_messages()
+
+        # Waste mutation
+        self._mutate_waste()
+
         # Spawn new green waste periodically
         if self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
             self.spawn_accumulator += RADIATION_SPAWN_RAMP
             count = int(RADIATION_SPAWN_COUNT + self.spawn_accumulator)
+
+            # Difficulty bonus: every DIFFICULTY_BONUS_INTERVAL ticks, add bonus
+            bonus = (self.tick // DIFFICULTY_BONUS_INTERVAL) * DIFFICULTY_BONUS_AMOUNT
+            count += bonus
+
             for _ in range(count):
                 x = random.randint(0, ZONE_1_END - 1)
                 y = random.randint(0, GRID_ROWS - 1)
-                w = Waste(x, y, "green")
+                w = Waste(x, y, "green", created_at=self.tick)
                 self.waste_map.setdefault((x, y), []).append(w)
+
+        # After Z2_SPAWN_AFTER_TICK, also spawn yellow waste in z2
+        if self.tick >= Z2_SPAWN_AFTER_TICK:
+            if self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
+                z2_count = max(1, int(RADIATION_SPAWN_COUNT * 0.5))
+                for _ in range(z2_count):
+                    x = random.randint(ZONE_1_END, ZONE_2_END - 1)
+                    y = random.randint(0, GRID_ROWS - 1)
+                    w = Waste(x, y, "yellow", created_at=self.tick)
+                    self.waste_map.setdefault((x, y), []).append(w)
 
         # All agents act simultaneously
         random.shuffle(self.robots)
@@ -257,12 +327,20 @@ class RobotMission:
         red_count = sum(1 for wl in self.waste_map.values()
                         for w in wl if w.waste_type == "red")
 
+        # Average energy across all robots
+        if ENERGY_ENABLED and self.robots:
+            avg_energy = sum(r.energy for r in self.robots) / len(self.robots)
+        else:
+            avg_energy = AGENT_MAX_ENERGY
+
         self.history["tick"].append(self.tick)
         self.history["total_waste"].append(total)
         self.history["green_waste"].append(green_count)
         self.history["yellow_waste"].append(yellow_count)
         self.history["red_waste"].append(red_count)
         self.history["waste_disposed"].append(self.waste_disposed)
+        self.history["avg_energy"].append(avg_energy)
+        self.history["messages_sent"].append(self.total_messages_sent)
 
         self.score += 1  # survival bonus
 
