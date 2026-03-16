@@ -17,7 +17,7 @@ import random as _rand
 
 ASSET_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
 
-DEFAULT_DESIGN = "mech"
+DEFAULT_DESIGN = "claude"
 
 
 # =============================================================================
@@ -78,6 +78,61 @@ ROBOT_PALETTES = {
     },
 }
 
+# Claude-style palette overrides — warm terminal tones
+CLAUDE_PALETTES = {
+    "green": {
+        # Teal/cyan terminal — the "green" role in Claude style
+        "body":      (60, 150, 140),
+        "body_dark": (40, 110, 100),
+        "body_lit":  (90, 190, 175),
+        "belly":     (30, 45, 50),       # dark terminal panel
+        "outline":   (20, 55, 50),
+        "eye_white": (180, 240, 230),
+        "eye_pupil": (20, 50, 45),
+        "eye_shine": (140, 255, 240),
+        "mouth":     (20, 55, 50),
+        "cheek":     (100, 200, 180, 60),
+        "antenna":   (50, 120, 110),
+        "ant_tip":   (100, 255, 230),    # bright teal glow
+        "accent":    (80, 200, 185),
+        "boots":     (35, 75, 70),
+    },
+    "yellow": {
+        # Warm orange/terracotta — the signature Claude color
+        "body":      (210, 130, 70),
+        "body_dark": (170, 95, 45),
+        "body_lit":  (240, 165, 100),
+        "belly":     (40, 35, 30),       # dark terminal panel
+        "outline":   (85, 45, 20),
+        "eye_white": (255, 225, 200),
+        "eye_pupil": (70, 35, 15),
+        "eye_shine": (255, 200, 150),
+        "mouth":     (85, 45, 20),
+        "cheek":     (255, 170, 100, 60),
+        "antenna":   (180, 100, 50),
+        "ant_tip":   (255, 180, 100),    # warm amber glow
+        "accent":    (240, 160, 80),
+        "boots":     (100, 55, 30),
+    },
+    "red": {
+        # Warm coral/rose — the "red" role in Claude style
+        "body":      (195, 80, 75),
+        "body_dark": (155, 55, 50),
+        "body_lit":  (230, 115, 105),
+        "belly":     (45, 30, 30),       # dark terminal panel
+        "outline":   (75, 25, 22),
+        "eye_white": (255, 210, 200),
+        "eye_pupil": (65, 20, 15),
+        "eye_shine": (255, 180, 170),
+        "mouth":     (75, 25, 22),
+        "cheek":     (255, 130, 110, 60),
+        "antenna":   (160, 60, 50),
+        "ant_tip":   (255, 130, 110),    # warm rose glow
+        "accent":    (230, 110, 95),
+        "boots":     (85, 40, 35),
+    },
+}
+
 WASTE_PALETTES = {
     "green": {
         "core":  (60, 200, 70),
@@ -116,6 +171,25 @@ WORLD_COLORS = {
     "z3_lava_glow":    (255, 100, 30),
     "z3_lava":         (200, 60, 20),
     "z3_lava_dark":    (140, 35, 15),
+}
+
+# Dark terminal-style world colors for Claude design
+DARK_WORLD_COLORS = {
+    "z1_top":       (22, 30, 35),
+    "z1_mid":       (18, 26, 30),
+    "z1_line":      (40, 65, 70),
+    "z1_dot":       (50, 90, 85),
+    "z1_glow":      (60, 140, 130),
+    "z2_top":       (30, 26, 20),
+    "z2_mid":       (25, 22, 16),
+    "z2_line":      (65, 50, 30),
+    "z2_dot":       (100, 70, 35),
+    "z2_glow":      (180, 110, 50),
+    "z3_top":       (32, 20, 20),
+    "z3_mid":       (26, 16, 16),
+    "z3_line":      (70, 35, 30),
+    "z3_dot":       (110, 45, 35),
+    "z3_glow":      (180, 60, 40),
 }
 
 
@@ -527,7 +601,81 @@ def _draw_knight_robot(pal, size=32, frame=0, facing="right"):
     return s
 
 
+def _draw_claude_robot(pal, size=32, frame=0, facing="right"):
+    """Claude Code CLI-style robot: boxy, minimal, warm terminal aesthetic."""
+    s = _surf(size, size)
+    cx = size // 2
+    bounce = int(math.sin(frame * 0.4) * 1)
+    body_y = 9 + bounce
+    leg_offset = int(math.sin(frame * 0.6) * 2)
+
+    # Shadow
+    _ellipse(s, (0, 0, 0, 35), (cx - 8, size - 4, 16, 4))
+
+    # Legs — simple rectangular, clean
+    leg_y = body_y + 16
+    for lx, off in [(cx - 6 - leg_offset, 0), (cx + 3 + leg_offset, 0)]:
+        _rect(s, pal["outline"], (lx, leg_y, 4, 7), border_radius=1)
+        _rect(s, pal["boots"], (lx + 1, leg_y + 1, 2, 5), border_radius=1)
+        # Feet
+        _rect(s, pal["outline"], (lx - 1, leg_y + 5, 6, 3), border_radius=1)
+        _rect(s, pal["boots"], (lx, leg_y + 6, 4, 1))
+
+    # Body — clean rectangle with subtle panel lines
+    _rect(s, pal["outline"], (cx - 8, body_y + 2, 16, 15), border_radius=2)
+    _rect(s, pal["body"], (cx - 7, body_y + 3, 14, 13), border_radius=1)
+    # Chest panel
+    _rect(s, pal["belly"], (cx - 5, body_y + 5, 10, 8), border_radius=1)
+    # Terminal-style detail: two horizontal lines like text
+    _rect(s, pal["accent"], (cx - 3, body_y + 7, 6, 1))
+    _rect(s, pal["accent"], (cx - 3, body_y + 9, 4, 1))
+    # Small blinking cursor dot
+    cursor_blink = (frame // 8) % 2
+    if cursor_blink:
+        _rect(s, pal["ant_tip"], (cx + 2, body_y + 9, 2, 1))
+
+    # Arms — simple, straight
+    arm_swing = int(math.sin(frame * 0.4) * 2)
+    for side, sw in [(-1, arm_swing), (1, -arm_swing)]:
+        ax = cx + side * 9
+        ay = body_y + 4 + sw
+        _rect(s, pal["outline"], (ax - 1, ay, 3, 9), border_radius=1)
+        _rect(s, pal["body_dark"], (ax, ay + 1, 1, 7))
+        # Hand
+        _rect(s, pal["outline"], (ax - 1, ay + 8, 3, 2), border_radius=1)
+
+    # Head — boxy with rounded corners, the signature Claude look
+    head_y = body_y - 4
+    _rect(s, pal["outline"], (cx - 7, head_y - 4, 14, 10), border_radius=3)
+    _rect(s, pal["body"], (cx - 6, head_y - 3, 12, 8), border_radius=2)
+    _rect(s, pal["body_lit"], (cx - 5, head_y - 3, 6, 3), border_radius=1)
+
+    # Eyes — simple rectangular terminal-style, like > _
+    visor_off = 1 if facing == "right" else -1
+    # Left eye (a small bright square)
+    _rect(s, pal["eye_white"], (cx - 4 + visor_off, head_y - 1, 3, 2))
+    _rect(s, pal["eye_shine"], (cx - 3 + visor_off, head_y - 1, 1, 1))
+    # Right eye
+    _rect(s, pal["eye_white"], (cx + 2 + visor_off, head_y - 1, 3, 2))
+    _rect(s, pal["eye_shine"], (cx + 3 + visor_off, head_y - 1, 1, 1))
+
+    # Mouth — small line, like an underscore
+    _rect(s, pal["accent"], (cx - 2, head_y + 3, 4, 1))
+
+    # Antenna — thin with glowing orb
+    _rect(s, pal["antenna"], (cx - 1, head_y - 8, 2, 5))
+    # Glowing tip with pulse
+    glow_pulse = 0.5 + 0.5 * math.sin(frame * 0.3)
+    glow_alpha = int(100 * glow_pulse)
+    _circle(s, (*pal["ant_tip"][:3], glow_alpha), cx, head_y - 9, 4)
+    _circle(s, pal["ant_tip"], cx, head_y - 9, 2)
+    _circle(s, (255, 255, 255), cx, head_y - 10, 1)
+
+    return s
+
+
 ROBOT_DESIGNS = {
+    "claude":  _draw_claude_robot,
     "mech":   _draw_mech_robot,
     "ninja":  _draw_ninja_robot,
     "tank":   _draw_tank_robot,
@@ -687,6 +835,93 @@ def _make_zone3_tile(size, parity):
 
 
 # =============================================================================
+# Dark Terminal Tiles (Claude aesthetic)
+# =============================================================================
+
+def _make_dark_zone1_tile(size, parity):
+    """Dark teal-tinted terminal tile for zone 1."""
+    s = pygame.Surface((size, size))
+    dc = DARK_WORLD_COLORS
+    s.fill(dc["z1_top"] if parity == 0 else dc["z1_mid"])
+
+    # Subtle grid lines
+    line_c = dc["z1_line"]
+    pygame.draw.line(s, line_c, (0, 0), (size, 0), 1)
+    pygame.draw.line(s, line_c, (0, 0), (0, size), 1)
+
+    # Subtle corner dots (circuit board feel)
+    dot_c = (*dc["z1_dot"], 60)
+    for px, py in [(4, 4), (size - 4, 4), (4, size - 4), (size - 4, size - 4)]:
+        temp = _surf(3, 3)
+        pygame.draw.rect(temp, dot_c, (0, 0, 3, 3))
+        s.blit(temp, (px - 1, py - 1))
+
+    # Faint scan line
+    if parity == 0:
+        scan_c = (*dc["z1_glow"], 15)
+        temp = _surf(size, 1)
+        temp.fill(scan_c)
+        s.blit(temp, (0, size // 2))
+
+    return s
+
+
+def _make_dark_zone2_tile(size, parity):
+    """Dark amber-tinted terminal tile for zone 2."""
+    s = pygame.Surface((size, size))
+    dc = DARK_WORLD_COLORS
+    s.fill(dc["z2_top"] if parity == 0 else dc["z2_mid"])
+
+    line_c = dc["z2_line"]
+    pygame.draw.line(s, line_c, (0, 0), (size, 0), 1)
+    pygame.draw.line(s, line_c, (0, 0), (0, size), 1)
+
+    # Warning hash marks
+    dot_c = (*dc["z2_dot"], 40)
+    for px, py in [(8, 8), (24, 24)]:
+        if px < size and py < size:
+            temp = _surf(2, 2)
+            pygame.draw.rect(temp, dot_c, (0, 0, 2, 2))
+            s.blit(temp, (px, py))
+
+    # Diagonal caution stripe (very subtle)
+    if parity == 1:
+        stripe_c = (*dc["z2_glow"], 10)
+        temp = _surf(size, size)
+        pygame.draw.line(temp, stripe_c, (0, size), (size, 0), 1)
+        s.blit(temp, (0, 0))
+
+    return s
+
+
+def _make_dark_zone3_tile(size, parity):
+    """Dark red-tinted terminal tile for zone 3."""
+    s = pygame.Surface((size, size))
+    dc = DARK_WORLD_COLORS
+    s.fill(dc["z3_top"] if parity == 0 else dc["z3_mid"])
+
+    line_c = dc["z3_line"]
+    pygame.draw.line(s, line_c, (0, 0), (size, 0), 1)
+    pygame.draw.line(s, line_c, (0, 0), (0, size), 1)
+
+    # Danger dots
+    dot_c = (*dc["z3_dot"], 50)
+    for px, py in [(6, 6), (20, 12), (12, 24)]:
+        if px < size and py < size:
+            temp = _surf(2, 2)
+            pygame.draw.rect(temp, dot_c, (0, 0, 2, 2))
+            s.blit(temp, (px, py))
+
+    # Faint red glow at bottom
+    glow_c = (*dc["z3_glow"], 12)
+    temp = _surf(size, 4)
+    temp.fill(glow_c)
+    s.blit(temp, (0, size - 4))
+
+    return s
+
+
+# =============================================================================
 # Particle System
 # =============================================================================
 
@@ -766,7 +1001,9 @@ class SpriteCache:
         cs = self.cell_size
 
         for design_name, draw_fn in ROBOT_DESIGNS.items():
-            for robot_type, pal in ROBOT_PALETTES.items():
+            # Use Claude palettes for the claude design, normal palettes otherwise
+            palettes = CLAUDE_PALETTES if design_name == "claude" else ROBOT_PALETTES
+            for robot_type, pal in palettes.items():
                 for f in range(self.num_frames):
                     sprite_r = draw_fn(pal, cs, f, "right")
                     sprite_l = pygame.transform.flip(sprite_r, True, False)
@@ -780,10 +1017,17 @@ class SpriteCache:
         for f in range(self.num_frames):
             self._cache[("disposal", 0, f)] = _draw_disposal(cs, f)
 
+        # Standard tiles
         for parity in (0, 1):
             self._tile_cache[(1, parity)] = _make_zone1_tile(cs, parity)
             self._tile_cache[(2, parity)] = _make_zone2_tile(cs, parity)
             self._tile_cache[(3, parity)] = _make_zone3_tile(cs, parity)
+
+        # Dark terminal tiles (for Claude design)
+        for parity in (0, 1):
+            self._tile_cache[("dark", 1, parity)] = _make_dark_zone1_tile(cs, parity)
+            self._tile_cache[("dark", 2, parity)] = _make_dark_zone2_tile(cs, parity)
+            self._tile_cache[("dark", 3, parity)] = _make_dark_zone3_tile(cs, parity)
 
         self._save_samples()
 
@@ -821,5 +1065,7 @@ class SpriteCache:
             return self._cache.get((kind, d, variant, f))
         return self._cache.get((kind, variant, f))
 
-    def get_tile(self, zone, parity):
+    def get_tile(self, zone, parity, dark=False):
+        if dark:
+            return self._tile_cache.get(("dark", zone, parity))
         return self._tile_cache.get((zone, parity))
