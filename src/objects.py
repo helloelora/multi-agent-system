@@ -15,11 +15,12 @@ from src.config import ZONE_1_RAD_RANGE, ZONE_2_RAD_RANGE, ZONE_3_RAD_RANGE
 class Waste:
     """A waste item on the grid."""
 
-    def __init__(self, x, y, waste_type="green"):
+    def __init__(self, x, y, waste_type="green", created_at=0):
         self.x = x
         self.y = y
         self.waste_type = waste_type  # "green", "yellow", "red"
         self.collected = False
+        self.created_at = created_at  # tick when this waste was placed on the grid
 
     @property
     def pos(self):
