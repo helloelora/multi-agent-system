@@ -55,11 +55,12 @@ class Renderer:
         w = GRID_COLS * CELL_SIZE
         h = GRID_ROWS * CELL_SIZE
         self._grid_surface = pygame.Surface((w, h))
+        use_dark = self.robot_design == "claude"
         for x in range(GRID_COLS):
             for y in range(GRID_ROWS):
                 zone = self._get_zone(x)
                 parity = (x + y) % 2
-                tile = self.sprite_cache.get_tile(zone, parity)
+                tile = self.sprite_cache.get_tile(zone, parity, dark=use_dark)
                 if tile:
                     self._grid_surface.blit(tile, (x * CELL_SIZE, y * CELL_SIZE))
 
@@ -157,22 +158,32 @@ class Renderer:
                             self.screen.blit(overlay, (sx, sy))
 
     def _draw_zone_borders(self):
+        use_dark = self.robot_design == "claude"
+
         # Zone separator lines (dashed)
+        sep_color = (80, 180, 170) if use_dark else (255, 255, 255, 120)
         for col in [ZONE_1_END, ZONE_2_END]:
             sx = self.grid_offset_x + col * CELL_SIZE + self._shake_offset[0]
             sy_start = self.grid_offset_y + self._shake_offset[1]
             sy_end = sy_start + GRID_ROWS * CELL_SIZE
 
             for y in range(sy_start, sy_end, 8):
-                pygame.draw.line(self.screen, (255, 255, 255, 120),
+                pygame.draw.line(self.screen, sep_color,
                                  (sx, y), (sx, min(y + 4, sy_end)), 2)
 
         # Zone labels
-        zone_labels = [
-            (0, "ZONE 1", "GRASSLANDS", (100, 210, 100)),
-            (ZONE_1_END, "ZONE 2", "DESERT", (220, 190, 110)),
-            (ZONE_2_END, "ZONE 3", "VOLCANO", (210, 90, 80)),
-        ]
+        if use_dark:
+            zone_labels = [
+                (0, "ZONE 1", "LOW RAD", (80, 190, 175)),
+                (ZONE_1_END, "ZONE 2", "MED RAD", (210, 140, 60)),
+                (ZONE_2_END, "ZONE 3", "HIGH RAD", (200, 80, 70)),
+            ]
+        else:
+            zone_labels = [
+                (0, "ZONE 1", "GRASSLANDS", (100, 210, 100)),
+                (ZONE_1_END, "ZONE 2", "DESERT", (220, 190, 110)),
+                (ZONE_2_END, "ZONE 3", "VOLCANO", (210, 90, 80)),
+            ]
         for start_col, name, subtitle, color in zone_labels:
             lx = self.grid_offset_x + start_col * CELL_SIZE + 6 + self._shake_offset[0]
             ly = self.grid_offset_y - 18 + self._shake_offset[1]
