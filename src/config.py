@@ -65,7 +65,7 @@ INITIAL_GREEN_WASTE = 15        # green waste lumps at start (placed in zone 1)
 # Spawning
 RADIATION_SPAWN_INTERVAL = 90   # ticks between new green waste spawns
 RADIATION_SPAWN_COUNT = 2       # green wastes per spawn event
-RADIATION_SPAWN_RAMP = 0.02     # extra waste added to spawn count each event
+RADIATION_SPAWN_RAMP = 0.05     # extra waste added to spawn count each event
                                 #   (e.g. after 50 events: 2 + 50*0.02 = 3 per spawn)
 
 # Game over
@@ -146,3 +146,49 @@ PARTICLE_ENABLED = True         # set False to disable particle effects
 
 CHART_UPDATE_INTERVAL = 30      # frames between chart data refreshes
 CHART_HISTORY_LENGTH = 300      # max data points shown on charts
+
+
+# =============================================================================
+# 8. WASTE MUTATION
+# =============================================================================
+
+WASTE_MUTATION_ENABLED = True           # toggle waste mutation on/off
+WASTE_MUTATION_GREEN_TICKS = 60         # ticks before green waste mutates to yellow
+WASTE_MUTATION_YELLOW_TICKS = 80        # ticks before yellow waste mutates to red
+
+
+# =============================================================================
+# 9. ENERGY SYSTEM
+# =============================================================================
+
+ENERGY_ENABLED = True                   # toggle energy system on/off
+AGENT_MAX_ENERGY = 100                  # starting and maximum energy
+ENERGY_COST_MOVE = 1                    # energy cost to move one cell
+ENERGY_COST_PICKUP = 2                  # energy cost to pick up waste
+ENERGY_COST_TRANSFORM = 5              # energy cost to transform waste
+ENERGY_COST_DROP = 1                    # energy cost to drop waste
+ENERGY_RECHARGE_IDLE = 3               # energy regained per idle tick
+
+
+# =============================================================================
+# 10. DIFFICULTY RAMPING
+# =============================================================================
+
+DIFFICULTY_BONUS_INTERVAL = 200         # every N ticks, spawn count gets bonus
+DIFFICULTY_BONUS_AMOUNT = 1             # bonus amount added per interval
+Z2_SPAWN_AFTER_TICK = 500              # after this tick, yellow waste spawns in z2
+
+
+# =============================================================================
+# 11. SOUND
+# =============================================================================
+
+SOUND_ENABLED = True                    # toggle sound on/off
+SOUND_VOLUME = 0.3                      # master volume (0.0 - 1.0)
+
+
+# =============================================================================
+# 12. COMMUNICATION
+# =============================================================================
+
+COMMUNICATION_ENABLED = True            # toggle agent communication on/off
