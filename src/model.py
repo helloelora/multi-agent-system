@@ -25,19 +25,25 @@ from src.agents import (
     GreenAgent, YellowAgent, RedAgent,
     ACTION_MOVE_UP, ACTION_MOVE_DOWN, ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT,
     ACTION_PICK_UP, ACTION_TRANSFORM, ACTION_DROP, ACTION_IDLE,
+    HUMAN_AGENT_CLASSES,
 )
 
 
 class RobotMission:
     """The world model."""
 
-    def __init__(self):
+    def __init__(self, human_mode=False, human_color=None):
         self.tick = 0
         self.game_over = False
         self.score = 0
         self.waste_disposed = 0
         self.spawn_accumulator = 0.0
         self.events = []  # list of (event_type, pos, data) for visual effects
+
+        # Human player mode
+        self.human_mode = human_mode
+        self.human_color = human_color
+        self.human_robot = None  # set during _setup if human_mode
 
         # Communication: message board for inter-agent messaging
         self.message_board = []   # messages posted this tick, delivered next tick
@@ -88,23 +94,34 @@ class RobotMission:
 
         # Create robots
         agent_id = 0
-        for _ in range(_cfg.NUM_GREEN_ROBOTS):
-            x = random.randint(0, ZONE_1_END - 1)
-            y = random.randint(0, GRID_ROWS - 1)
-            self.robots.append(GreenAgent(agent_id, x, y))
-            agent_id += 1
 
-        for _ in range(_cfg.NUM_YELLOW_ROBOTS):
-            x = random.randint(ZONE_1_END, ZONE_2_END - 1)
-            y = random.randint(0, GRID_ROWS - 1)
-            self.robots.append(YellowAgent(agent_id, x, y))
-            agent_id += 1
+        # Robot type configs: (config_count, ai_class, color_name, spawn_x_range)
+        robot_configs = [
+            (_cfg.NUM_GREEN_ROBOTS, GreenAgent, "green",
+             (0, ZONE_1_END - 1)),
+            (_cfg.NUM_YELLOW_ROBOTS, YellowAgent, "yellow",
+             (ZONE_1_END, ZONE_2_END - 1)),
+            (_cfg.NUM_RED_ROBOTS, RedAgent, "red",
+             (ZONE_2_END, GRID_COLS - 1)),
+        ]
 
-        for _ in range(_cfg.NUM_RED_ROBOTS):
-            x = random.randint(ZONE_2_END, GRID_COLS - 1)
-            y = random.randint(0, GRID_ROWS - 1)
-            self.robots.append(RedAgent(agent_id, x, y))
-            agent_id += 1
+        for count, ai_cls, color_name, (x_lo, x_hi) in robot_configs:
+            if self.human_mode and self.human_color == color_name:
+                # Create 1 human-controlled robot of this color
+                human_cls = HUMAN_AGENT_CLASSES[color_name]
+                x = random.randint(x_lo, x_hi)
+                y = random.randint(0, GRID_ROWS - 1)
+                human_robot = human_cls(agent_id, x, y)
+                self.robots.append(human_robot)
+                self.human_robot = human_robot
+                agent_id += 1
+            else:
+                # Create normal AI robots
+                for _ in range(count):
+                    x = random.randint(x_lo, x_hi)
+                    y = random.randint(0, GRID_ROWS - 1)
+                    self.robots.append(ai_cls(agent_id, x, y))
+                    agent_id += 1
 
     @staticmethod
     def _get_zone(col):

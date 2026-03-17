@@ -23,6 +23,10 @@ from src.sprites import SpriteCache, DEFAULT_DESIGN
 from src.menu import StartMenu, PauseMenu
 from src.sounds import SoundManager
 from src.analytics import DataExporter
+from src.agents import (
+    ACTION_MOVE_UP, ACTION_MOVE_DOWN, ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT,
+    ACTION_PICK_UP, ACTION_TRANSFORM, ACTION_DROP, ACTION_IDLE,
+)
 
 EVENT_COLORS = {
     "green": COLOR_GREEN_WASTE,
@@ -36,6 +40,18 @@ def _apply_settings(settings):
     config.NUM_GREEN_ROBOTS = settings["num_green"]
     config.NUM_YELLOW_ROBOTS = settings["num_yellow"]
     config.NUM_RED_ROBOTS = settings["num_red"]
+
+    # If human mode, force chosen color's robot count to 1
+    human_mode = settings.get("human_mode", False)
+    human_color = settings.get("human_color")
+    if human_mode and human_color:
+        color_config_map = {
+            "green": "NUM_GREEN_ROBOTS",
+            "yellow": "NUM_YELLOW_ROBOTS",
+            "red": "NUM_RED_ROBOTS",
+        }
+        setattr(config, color_config_map[human_color], 1)
+
     config.INITIAL_GREEN_WASTE = settings["initial_waste"]
     config.MAX_RADIATION_THRESHOLD = settings["max_radiation"]
     config.RADIATION_SPAWN_INTERVAL = settings["spawn_interval"]
@@ -65,10 +81,12 @@ def main():
             break
 
         design = settings.get("design", DEFAULT_DESIGN)
+        human_mode = settings.get("human_mode", False)
+        human_color = settings.get("human_color")
         _apply_settings(settings)
 
         # Create model & renderer with chosen design
-        model = RobotMission()
+        model = RobotMission(human_mode=human_mode, human_color=human_color)
         renderer = Renderer(screen, robot_design=design)
 
         paused = False
@@ -76,6 +94,18 @@ def main():
         frame_count = 0
         go_to_menu = False
         game_over_sound_played = False
+
+        # Key mapping for human player actions
+        _HUMAN_KEY_MAP = {
+            pygame.K_UP: ACTION_MOVE_UP,
+            pygame.K_DOWN: ACTION_MOVE_DOWN,
+            pygame.K_LEFT: ACTION_MOVE_LEFT,
+            pygame.K_RIGHT: ACTION_MOVE_RIGHT,
+            pygame.K_SPACE: ACTION_PICK_UP,
+            pygame.K_t: ACTION_TRANSFORM,
+            pygame.K_f: ACTION_DROP,
+            pygame.K_i: ACTION_IDLE,
+        }
 
         running = True
         while running and not go_to_menu:
@@ -88,7 +118,10 @@ def main():
                     if event.key == pygame.K_q:
                         pygame.quit()
                         sys.exit()
-                    elif event.key == pygame.K_SPACE:
+
+                    # Pause: ESC in human mode, SPACE in AI mode
+                    elif ((human_mode and event.key == pygame.K_ESCAPE) or
+                          (not human_mode and event.key == pygame.K_SPACE)):
                         if not model.game_over:
                             # Show pause menu
                             pause_menu = PauseMenu(screen)
@@ -96,7 +129,9 @@ def main():
                             if action == PauseMenu.RESUME:
                                 pass  # continue game
                             elif action == PauseMenu.RESTART:
-                                model = RobotMission()
+                                model = RobotMission(
+                                    human_mode=human_mode,
+                                    human_color=human_color)
                                 renderer._agent_positions.clear()
                                 frame_count = 0
                                 speed = 1
@@ -106,10 +141,18 @@ def main():
                             elif action == PauseMenu.QUIT:
                                 pygame.quit()
                                 sys.exit()
+
+                    # Human player controls
+                    elif (human_mode and model.human_robot and
+                          event.key in _HUMAN_KEY_MAP):
+                        model.human_robot.pending_action = _HUMAN_KEY_MAP[event.key]
+
                     elif event.key == pygame.K_m:
                         go_to_menu = True
                     elif event.key == pygame.K_r:
-                        model = RobotMission()
+                        model = RobotMission(
+                            human_mode=human_mode,
+                            human_color=human_color)
                         renderer._agent_positions.clear()
                         frame_count = 0
                         speed = 1

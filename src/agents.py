@@ -59,6 +59,7 @@ class RobotAgent:
         self.agent_id = agent_id
         self.x = x
         self.y = y
+        self.is_human = False
         self.inventory = []        # list of waste_type strings
         self.energy = AGENT_MAX_ENERGY if ENERGY_ENABLED else AGENT_MAX_ENERGY
         self.mailbox = []          # incoming messages for communication
@@ -436,3 +437,56 @@ class RedAgent(RobotAgent):
                                               self.allowed_zones)
 
         return RedAgent._random_move(pos, self.allowed_zones)
+
+
+# =============================================================================
+# Human-controlled agent subclasses
+# =============================================================================
+
+class HumanGreenAgent(GreenAgent):
+    """Player-controlled green robot. deliberate() returns pending_action."""
+
+    def __init__(self, agent_id, x, y):
+        super().__init__(agent_id, x, y)
+        self.pending_action = ACTION_IDLE
+        self.is_human = True
+
+    def deliberate(self, knowledge):
+        action = self.pending_action
+        self.pending_action = ACTION_IDLE
+        return action
+
+
+class HumanYellowAgent(YellowAgent):
+    """Player-controlled yellow robot. deliberate() returns pending_action."""
+
+    def __init__(self, agent_id, x, y):
+        super().__init__(agent_id, x, y)
+        self.pending_action = ACTION_IDLE
+        self.is_human = True
+
+    def deliberate(self, knowledge):
+        action = self.pending_action
+        self.pending_action = ACTION_IDLE
+        return action
+
+
+class HumanRedAgent(RedAgent):
+    """Player-controlled red robot. deliberate() returns pending_action."""
+
+    def __init__(self, agent_id, x, y):
+        super().__init__(agent_id, x, y)
+        self.pending_action = ACTION_IDLE
+        self.is_human = True
+
+    def deliberate(self, knowledge):
+        action = self.pending_action
+        self.pending_action = ACTION_IDLE
+        return action
+
+
+HUMAN_AGENT_CLASSES = {
+    "green": HumanGreenAgent,
+    "yellow": HumanYellowAgent,
+    "red": HumanRedAgent,
+}

@@ -20,6 +20,7 @@ from src.config import (
     COLOR_GREEN_ROBOT, COLOR_YELLOW_ROBOT, COLOR_RED_ROBOT,
     FONT_SIZE, FONT_SIZE_LARGE,
     CHART_HISTORY_LENGTH, SPRITE_ANIM_SPEED,
+    AGENT_MAX_ENERGY, ENERGY_ENABLED,
 )
 from src.sprites import SpriteCache
 
@@ -127,8 +128,16 @@ class Renderer:
         self.sprite_cache.particle_system.update()
         self.sprite_cache.particle_system.draw(self.screen)
 
+        # Human player highlight and HUD
+        if getattr(model, "human_mode", False) and model.human_robot:
+            self._draw_human_highlight(model)
+
         self._draw_hud(model)
         self._draw_sidebar(model)
+
+        # Human player info bar at the bottom of the grid
+        if getattr(model, "human_mode", False) and model.human_robot:
+            self._draw_human_hud(model)
 
         if model.game_over:
             self._draw_game_over(model)
@@ -436,6 +445,139 @@ class Renderer:
                                  (dash_x, ty), (min(dash_x + 3, x + w - margin), ty), 1)
 
         return y + h
+
+    def _draw_human_highlight(self, model):
+        """Draw a pulsing diamond highlight around the human-controlled robot."""
+        robot = model.human_robot
+        sx, sy = self._get_smooth_pos(robot)
+        cx = sx + CELL_SIZE // 2
+        cy = sy + CELL_SIZE // 2
+
+        # Pulsing effect
+        pulse = 0.5 + 0.5 * math.sin(self.frame_count * 0.12)
+        size = int(CELL_SIZE * 0.6 + pulse * 4)
+
+        # Color based on robot type
+        color_map = {
+            "green": (80, 255, 120),
+            "yellow": (255, 240, 60),
+            "red": (255, 80, 80),
+        }
+        base_color = color_map.get(robot.robot_type, (255, 255, 255))
+
+        # Draw diamond outline
+        alpha = int(120 + 100 * pulse)
+        diamond_surf = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+        dc = size + 2
+        points = [
+            (dc, dc - size),       # top
+            (dc + size, dc),       # right
+            (dc, dc + size),       # bottom
+            (dc - size, dc),       # left
+        ]
+        pygame.draw.polygon(diamond_surf, (*base_color, alpha), points, 2)
+        self.screen.blit(diamond_surf,
+                         (cx - size - 2, cy - size - 2))
+
+        # Arrow indicator above robot
+        arrow_y = sy - 10 - int(pulse * 4)
+        arrow_points = [
+            (cx, arrow_y),
+            (cx - 5, arrow_y - 8),
+            (cx + 5, arrow_y - 8),
+        ]
+        pygame.draw.polygon(self.screen, base_color, arrow_points)
+
+    def _draw_human_hud(self, model):
+        """Draw player info bar at the bottom of the grid area."""
+        robot = model.human_robot
+        bar_y = self.grid_offset_y + GRID_ROWS * CELL_SIZE + 2
+        bar_x = self.grid_offset_x
+        bar_w = GRID_COLS * CELL_SIZE
+        bar_h = 28
+
+        # Background
+        pygame.draw.rect(self.screen, (28, 28, 42),
+                         (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+        pygame.draw.rect(self.screen, (55, 55, 75),
+                         (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
+
+        x = bar_x + 8
+
+        # Player label
+        color_map = {
+            "green": (80, 255, 120),
+            "yellow": (255, 240, 60),
+            "red": (255, 80, 80),
+        }
+        pcolor = color_map.get(robot.robot_type, (255, 255, 255))
+        plabel = self.font.render(f"PLAYER: {robot.robot_type.upper()}", True, pcolor)
+        self.screen.blit(plabel, (x, bar_y + 7))
+        x += plabel.get_width() + 16
+
+        # Separator
+        pygame.draw.line(self.screen, (80, 80, 100), (x, bar_y + 4), (x, bar_y + bar_h - 4))
+        x += 8
+
+        # Inventory
+        inv_label = self.font.render("INV:", True, (160, 160, 180))
+        self.screen.blit(inv_label, (x, bar_y + 7))
+        x += inv_label.get_width() + 4
+
+        waste_colors = {
+            "green": COLOR_GREEN_WASTE,
+            "yellow": COLOR_YELLOW_WASTE,
+            "red": COLOR_RED_WASTE,
+        }
+        if robot.inventory:
+            for i, wtype in enumerate(robot.inventory[:12]):
+                wc = waste_colors.get(wtype, (200, 200, 200))
+                pygame.draw.circle(self.screen, wc, (x + i * 8 + 3, bar_y + 14), 3)
+            x += min(len(robot.inventory), 12) * 8 + 8
+        else:
+            empty_txt = self.font.render("empty", True, (90, 90, 110))
+            self.screen.blit(empty_txt, (x, bar_y + 7))
+            x += empty_txt.get_width() + 8
+
+        # Separator
+        pygame.draw.line(self.screen, (80, 80, 100), (x, bar_y + 4), (x, bar_y + bar_h - 4))
+        x += 8
+
+        # Energy bar
+        if ENERGY_ENABLED:
+            nrg_label = self.font.render("NRG:", True, (160, 160, 180))
+            self.screen.blit(nrg_label, (x, bar_y + 7))
+            x += nrg_label.get_width() + 4
+
+            ebar_w = 60
+            ebar_h = 10
+            ebar_y = bar_y + 9
+            # Background
+            pygame.draw.rect(self.screen, (40, 40, 55),
+                             (x, ebar_y, ebar_w, ebar_h), border_radius=3)
+            # Fill
+            ratio = robot.energy / AGENT_MAX_ENERGY if AGENT_MAX_ENERGY > 0 else 0
+            fill_w = int(ebar_w * ratio)
+            if fill_w > 0:
+                # Green when full, yellow mid, red when low
+                if ratio > 0.5:
+                    ec = (80, 220, 80)
+                elif ratio > 0.2:
+                    ec = (220, 200, 40)
+                else:
+                    ec = (220, 60, 60)
+                pygame.draw.rect(self.screen, ec,
+                                 (x, ebar_y, fill_w, ebar_h), border_radius=3)
+            x += ebar_w + 16
+
+        # Separator
+        pygame.draw.line(self.screen, (80, 80, 100), (x, bar_y + 4), (x, bar_y + bar_h - 4))
+        x += 8
+
+        # Controls hint
+        controls = "ARROWS:Move  SPACE:Pick  T:Transform  F:Drop  I:Idle"
+        ctrl_txt = self.font.render(controls, True, (120, 120, 150))
+        self.screen.blit(ctrl_txt, (x, bar_y + 7))
 
     def _draw_game_over(self, model):
         # Animated dark overlay
