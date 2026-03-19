@@ -1138,9 +1138,6 @@ def _make_zone1_tile(size, parity):
         s.set_at((bug_x, bug_y), (30, 20, 15))
         s.set_at((bug_x + 1, bug_y), (30, 20, 15))
 
-    # Stronger visual border
-    border = tuple(max(0, c - 20) for c in wc["z1_grass_mid"])
-    pygame.draw.rect(s, border, (0, 0, size, size), 1)
     return s
 
 
@@ -1220,8 +1217,6 @@ def _make_zone2_tile(size, parity):
         temp.fill(haze_c)
         s.blit(temp, (0, size // 3))
 
-    border = tuple(max(0, c - 15) for c in wc["z2_sand_mid"])
-    pygame.draw.rect(s, border, (0, 0, size, size), 1)
     return s
 
 
@@ -1237,16 +1232,14 @@ def _make_zone3_tile(size, parity):
         s.fill(wc["z3_stone_mid"])
         _rect(s, wc["z3_stone_top"], (0, 0, size, size // 2))
 
-    # Brick/rock pattern lines
-    brick_line = tuple(max(0, c - 18) for c in wc["z3_stone_mid"])
-    for y in [8, 16, 24]:
-        pygame.draw.line(s, brick_line, (0, y), (size, y), 1)
-    for row, y_start in enumerate([0, 8, 16, 24]):
-        offset = 0 if row % 2 == 0 else size // 2
-        for x in range(offset, size, size):
-            if 0 < x < size:
-                pygame.draw.line(s, brick_line, (x, y_start),
-                                 (x, min(y_start + 8, size)), 1)
+    # Subtle stone texture lines (short segments, not full width)
+    brick_line = tuple(max(0, c - 14) for c in wc["z3_stone_mid"])
+    if parity == 0:
+        pygame.draw.line(s, brick_line, (2, 10), (14, 10), 1)
+        pygame.draw.line(s, brick_line, (18, 22), (28, 22), 1)
+    else:
+        pygame.draw.line(s, brick_line, (6, 8), (20, 8), 1)
+        pygame.draw.line(s, brick_line, (0, 20), (12, 20), 1)
 
     # Crystal flecks (tiny bright dots on obsidian)
     crystal_colors = [(180, 160, 200), (150, 200, 180), (200, 180, 150)]
@@ -1297,20 +1290,14 @@ def _make_zone3_tile(size, parity):
         pts = [(2, 22), (4, 16), (6, 22)]
         pygame.draw.polygon(s, rock_dark, pts)
 
-    # More dramatic lava glow at tile bottom
-    glow = (*wc["z3_lava_glow"][:3], 35)
-    _rect(s, glow, (0, size - 6, size, 6))
-    glow2 = (*wc["z3_lava_glow"][:3], 18)
-    _rect(s, glow2, (0, size - 8, size, 2))
+    # Subtle lava glow spots (not full-width bands)
+    glow_c = wc["z3_lava_glow"]
+    if parity == 0:
+        _circle(s, (*glow_c[:3], 30), 8, size - 4, 3)
+        _circle(s, (*glow_c[:3], 20), 24, size - 3, 2)
+    else:
+        _circle(s, (*glow_c[:3], 25), 16, size - 4, 3)
 
-    # Toxic vent marks (small circles with faint green tint)
-    if parity == 1:
-        vent_c = (80, 140, 80, 50)
-        _circle(s, vent_c, 10, 10, 2)
-        _circle(s, vent_c, 24, 28, 1)
-
-    border = tuple(max(0, c - 12) for c in wc["z3_stone_mid"])
-    pygame.draw.rect(s, border, (0, 0, size, size), 1)
     return s
 
 
