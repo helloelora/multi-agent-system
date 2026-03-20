@@ -14,7 +14,6 @@ import math
 from src.config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, CELL_SIZE,
     BG_COLOR, HUD_BG_COLOR, TEXT_COLOR,
-    NUM_GREEN_ROBOTS, NUM_YELLOW_ROBOTS, NUM_RED_ROBOTS,
     INITIAL_GREEN_WASTE, MAX_RADIATION_THRESHOLD,
     RADIATION_SPAWN_INTERVAL, AGENT_TICK_RATE,
 )
@@ -70,37 +69,28 @@ class StartMenu:
         # Human player mode
         self._human_mode = False
         self._human_color = "green"  # default selection
+        self._run_mode = "auto"      # auto | step | step5
 
         # Settings (mutable copies of config defaults)
         self._settings = {
-            "num_green":    NUM_GREEN_ROBOTS,
-            "num_yellow":   NUM_YELLOW_ROBOTS,
-            "num_red":      NUM_RED_ROBOTS,
             "initial_waste": INITIAL_GREEN_WASTE,
             "max_radiation": MAX_RADIATION_THRESHOLD,
             "spawn_interval": RADIATION_SPAWN_INTERVAL,
             "tick_rate":    AGENT_TICK_RATE,
         }
         self._setting_ranges = {
-            "num_green":    (1, 10),
-            "num_yellow":   (1, 10),
-            "num_red":      (1, 10),
             "initial_waste": (5, 50),
             "max_radiation": (30, 200),
             "spawn_interval": (30, 300),
             "tick_rate":    (4, 30),
         }
         self._setting_labels = {
-            "num_green":    "Green Robots",
-            "num_yellow":   "Yellow Robots",
-            "num_red":      "Red Robots",
             "initial_waste": "Initial Green Waste",
             "max_radiation": "Max Radiation",
             "spawn_interval": "Spawn Interval",
             "tick_rate":    "Agent Tick Rate",
         }
         self._setting_order = [
-            "num_green", "num_yellow", "num_red",
             "initial_waste", "max_radiation", "spawn_interval", "tick_rate",
         ]
 
@@ -147,6 +137,7 @@ class StartMenu:
             "design": self._design_names[self._selected_idx],
             "human_mode": self._human_mode,
             "human_color": self._human_color if self._human_mode else None,
+            "run_mode": self._run_mode,
             **self._settings,
         }
 
@@ -183,23 +174,29 @@ class StartMenu:
                 if crect.collidepoint(mx, my):
                     self._human_color = c
 
+        # Simulation mode selector (AUTO / STEP / STEP x5)
+        run_mode_y = mode_y + (70 if self._human_mode else 38)
+        run_btn_auto = pygame.Rect(panel_x + 100, run_mode_y, 80, 24)
+        run_btn_step = pygame.Rect(panel_x + 190, run_mode_y, 80, 24)
+        run_btn_step5 = pygame.Rect(panel_x + 280, run_mode_y, 90, 24)
+        if run_btn_auto.collidepoint(mx, my):
+            self._run_mode = "auto"
+        elif run_btn_step.collidepoint(mx, my):
+            self._run_mode = "step"
+        elif run_btn_step5.collidepoint(mx, my):
+            self._run_mode = "step5"
+
         # Settings +/- buttons (shifted down to accommodate mode selector)
-        settings_y_offset = 380 if self._human_mode else 365
+        settings_y_offset = 430 if self._human_mode else 415
         sy = settings_y_offset
         for key in self._setting_order:
-            # Skip robot count adjustment for the human-controlled color
-            is_locked = (self._human_mode and
-                         ((key == "num_green" and self._human_color == "green") or
-                          (key == "num_yellow" and self._human_color == "yellow") or
-                          (key == "num_red" and self._human_color == "red")))
-            if not is_locked:
-                btn_minus = pygame.Rect(panel_x + 260, sy, 28, 22)
-                btn_plus = pygame.Rect(panel_x + 330, sy, 28, 22)
-                lo, hi = self._setting_ranges[key]
-                if btn_minus.collidepoint(mx, my):
-                    self._settings[key] = _clamp(self._settings[key] - 1, lo, hi)
-                elif btn_plus.collidepoint(mx, my):
-                    self._settings[key] = _clamp(self._settings[key] + 1, lo, hi)
+            btn_minus = pygame.Rect(panel_x + 260, sy, 28, 22)
+            btn_plus = pygame.Rect(panel_x + 330, sy, 28, 22)
+            lo, hi = self._setting_ranges[key]
+            if btn_minus.collidepoint(mx, my):
+                self._settings[key] = _clamp(self._settings[key] - 1, lo, hi)
+            elif btn_plus.collidepoint(mx, my):
+                self._settings[key] = _clamp(self._settings[key] + 1, lo, hi)
             sy += 30
 
         # START button
@@ -349,66 +346,63 @@ class StartMenu:
                 ctxt = self.font_sm.render(cname.upper(), True, (10, 10, 10))
                 self.screen.blit(ctxt, ctxt.get_rect(center=crect.center))
 
+        # Simulation mode selector
+        run_mode_y = mode_y + (70 if self._human_mode else 38)
+        run_lbl = self.font_sm.render("Sim mode:", True, _SUBTITLE_COLOR)
+        self.screen.blit(run_lbl, (panel_x, run_mode_y + 4))
+
+        mode_buttons = [
+            ("auto", "AUTO", pygame.Rect(panel_x + 100, run_mode_y, 80, 24)),
+            ("step", "STEP", pygame.Rect(panel_x + 190, run_mode_y, 80, 24)),
+            ("step5", "STEP x5", pygame.Rect(panel_x + 280, run_mode_y, 90, 24)),
+        ]
+        for mode_key, mode_label, rect in mode_buttons:
+            selected = self._run_mode == mode_key
+            hovered = rect.collidepoint(mx, my)
+            bg = _HIGHLIGHT if selected else (_BTN_HOVER if hovered else _BTN_BG)
+            txt_col = (10, 10, 10) if selected else _BTN_TEXT
+            pygame.draw.rect(self.screen, bg, rect, border_radius=4)
+            txt = self.font_sm.render(mode_label, True, txt_col)
+            self.screen.blit(txt, txt.get_rect(center=rect.center))
+
+        n_hint = self.font_sm.render("In STEP modes: press N for next step(s)", True, (130, 130, 150))
+        self.screen.blit(n_hint, (panel_x + 100, run_mode_y + 30))
+
     def _draw_settings(self, mouse_pos):
         mx, my = mouse_pos
         panel_x = WINDOW_WIDTH // 2 - 200
-        sy = 380 if self._human_mode else 365
+        sy = 430 if self._human_mode else 415
 
         header = self.font_med.render("Settings", True, _ACCENT)
         self.screen.blit(header, (panel_x, sy - 28))
-
-        # Map color keys for locking
-        _color_key_map = {
-            "num_green": "green",
-            "num_yellow": "yellow",
-            "num_red": "red",
-        }
 
         for key in self._setting_order:
             label = self._setting_labels[key]
             val = self._settings[key]
             lo, hi = self._setting_ranges[key]
 
-            # Check if this setting is locked (human mode, chosen color)
-            is_locked = (self._human_mode and
-                         key in _color_key_map and
-                         _color_key_map[key] == self._human_color)
-
-            if is_locked:
-                display_val = 1
-            else:
-                display_val = val
-
-            # Label (dimmed if locked)
-            lbl_color = (90, 90, 110) if is_locked else _SUBTITLE_COLOR
-            lbl_surf = self.font_sm.render(label, True, lbl_color)
+            lbl_surf = self.font_sm.render(label, True, _SUBTITLE_COLOR)
             self.screen.blit(lbl_surf, (panel_x, sy + 3))
 
             # Value
-            val_color = (90, 90, 110) if is_locked else TEXT_COLOR
-            val_surf = self.font_med.render(str(display_val), True, val_color)
+            val_surf = self.font_med.render(str(val), True, TEXT_COLOR)
             self.screen.blit(val_surf, (panel_x + 300, sy + 1))
 
-            if is_locked:
-                # Show "(PLAYER)" label instead of +/- buttons
-                lock_txt = self.font_sm.render("(PLAYER)", True, _HIGHLIGHT)
-                self.screen.blit(lock_txt, (panel_x + 340, sy + 4))
-            else:
-                # Minus button
-                btn_minus = pygame.Rect(panel_x + 260, sy, 28, 22)
-                minus_hover = btn_minus.collidepoint(mx, my)
-                pygame.draw.rect(self.screen, _BTN_HOVER if minus_hover else _BTN_BG,
-                                 btn_minus, border_radius=4)
-                m_txt = self.font_med.render("-", True, _BTN_TEXT)
-                self.screen.blit(m_txt, (btn_minus.x + 8, btn_minus.y))
+            # Minus button
+            btn_minus = pygame.Rect(panel_x + 260, sy, 28, 22)
+            minus_hover = btn_minus.collidepoint(mx, my)
+            pygame.draw.rect(self.screen, _BTN_HOVER if minus_hover else _BTN_BG,
+                             btn_minus, border_radius=4)
+            m_txt = self.font_med.render("-", True, _BTN_TEXT)
+            self.screen.blit(m_txt, (btn_minus.x + 8, btn_minus.y))
 
-                # Plus button
-                btn_plus = pygame.Rect(panel_x + 330, sy, 28, 22)
-                plus_hover = btn_plus.collidepoint(mx, my)
-                pygame.draw.rect(self.screen, _BTN_HOVER if plus_hover else _BTN_BG,
-                                 btn_plus, border_radius=4)
-                p_txt = self.font_med.render("+", True, _BTN_TEXT)
-                self.screen.blit(p_txt, (btn_plus.x + 6, btn_plus.y))
+            # Plus button
+            btn_plus = pygame.Rect(panel_x + 330, sy, 28, 22)
+            plus_hover = btn_plus.collidepoint(mx, my)
+            pygame.draw.rect(self.screen, _BTN_HOVER if plus_hover else _BTN_BG,
+                             btn_plus, border_radius=4)
+            p_txt = self.font_med.render("+", True, _BTN_TEXT)
+            self.screen.blit(p_txt, (btn_plus.x + 6, btn_plus.y))
 
             sy += 30
 

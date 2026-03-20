@@ -15,12 +15,14 @@ from src.config import (
     GRID_COLS, GRID_ROWS, ZONE_1_END, ZONE_2_END,
     RADIATION_SPAWN_COUNT, RADIATION_SPAWN_RAMP,
     GREEN_TO_YELLOW_COST, YELLOW_TO_RED_COST,
-    WASTE_MUTATION_ENABLED, WASTE_MUTATION_GREEN_TICKS, WASTE_MUTATION_YELLOW_TICKS,
     ENERGY_ENABLED, AGENT_MAX_ENERGY,
     DIFFICULTY_BONUS_INTERVAL, DIFFICULTY_BONUS_AMOUNT, Z2_SPAWN_AFTER_TICK,
     COMMUNICATION_ENABLED,
+    DECONTAMINATION_ENABLED,
+    HEALTH_RECOVERY_DECONTAMINATION,
+    HEALTH_LOSS_CARRY_GREEN, HEALTH_LOSS_CARRY_YELLOW, HEALTH_LOSS_CARRY_RED,
 )
-from src.objects import Waste, Radioactivity, WasteDisposalZone
+from src.objects import Waste, Radioactivity, WasteDisposalZone, DecontaminationZone
 from src.agents import (
     GreenAgent, YellowAgent, RedAgent,
     ACTION_MOVE_UP, ACTION_MOVE_DOWN, ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT,
@@ -35,6 +37,7 @@ class RobotMission:
     def __init__(self, human_mode=False, human_color=None):
         self.tick = 0
         self.game_over = False
+        self.mission_success = False
         self.score = 0
         self.waste_disposed = 0
         self.spawn_accumulator = 0.0
@@ -54,6 +57,7 @@ class RobotMission:
         self.radioactivity = {}   # (x,y) -> Radioactivity
         self.waste_map = {}       # (x,y) -> list[Waste]
         self.disposal_zones = set()
+        self.decontamination_zones = set()
 
         self.robots = []
 
@@ -67,6 +71,9 @@ class RobotMission:
             "waste_disposed": [],
             "avg_energy": [],
             "messages_sent": [],
+            "avg_energy_green": [],
+            "avg_energy_yellow": [],
+            "avg_energy_red": [],
         }
 
         self._setup()
@@ -84,6 +91,16 @@ class RobotMission:
         # Mark a few cells in the last column as disposal
         for y in range(GRID_ROWS):
             self.disposal_zones.add((GRID_COLS - 1, y))
+
+        # Place one decontamination zone at the center of each zone
+        if DECONTAMINATION_ENABLED:
+            mid_row = GRID_ROWS // 2
+            zone_centers = [
+                ((0 + (ZONE_1_END - 1)) // 2, mid_row),
+                ((ZONE_1_END + (ZONE_2_END - 1)) // 2, mid_row),
+                ((ZONE_2_END + (GRID_COLS - 1)) // 2, mid_row),
+            ]
+            self.decontamination_zones.update(zone_centers)
 
         # Spawn initial green waste in z1
         for _ in range(_cfg.INITIAL_GREEN_WASTE):
@@ -148,26 +165,6 @@ class RobotMission:
         self.total_messages_sent += len(self.message_board)
         self.message_board.clear()
 
-    # -- Waste Mutation --------------------------------------------------------
-
-    def _mutate_waste(self):
-        """Mutate waste that has been sitting on the grid too long."""
-        if not WASTE_MUTATION_ENABLED:
-            return
-        mutations = []
-        for pos, wastes in list(self.waste_map.items()):
-            for w in wastes:
-                age = self.tick - w.created_at
-                if w.waste_type == "green" and age >= WASTE_MUTATION_GREEN_TICKS:
-                    mutations.append((pos, w, "yellow"))
-                elif w.waste_type == "yellow" and age >= WASTE_MUTATION_YELLOW_TICKS:
-                    mutations.append((pos, w, "red"))
-
-        for pos, w, new_type in mutations:
-            w.waste_type = new_type
-            w.created_at = self.tick  # reset timer for further mutation
-            self.events.append(("mutate", pos, new_type))
-
     # -- Percepts --------------------------------------------------------------
 
     def get_percepts(self, agent):
@@ -193,6 +190,10 @@ class RobotMission:
                     # Disposal
                     if (nx, ny) in self.disposal_zones:
                         cell["disposal"] = True
+
+                    # Decontamination
+                    if (nx, ny) in self.decontamination_zones:
+                        cell["decontamination"] = True
 
                     # Other robots
                     others = [r for r in self.robots
@@ -298,11 +299,8 @@ class RobotMission:
         # Deliver messages from previous tick
         self._deliver_messages()
 
-        # Waste mutation
-        self._mutate_waste()
-
-        # Spawn new green waste periodically
-        if self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
+        # Spawn new green waste periodically (optional)
+        if _cfg.RADIATION_SPAWN_ENABLED and self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
             self.spawn_accumulator += RADIATION_SPAWN_RAMP
             count = int(RADIATION_SPAWN_COUNT + self.spawn_accumulator)
 
@@ -316,8 +314,8 @@ class RobotMission:
                 w = Waste(x, y, "green", created_at=self.tick)
                 self.waste_map.setdefault((x, y), []).append(w)
 
-        # After Z2_SPAWN_AFTER_TICK, also spawn yellow waste in z2
-        if self.tick >= Z2_SPAWN_AFTER_TICK:
+        # After Z2_SPAWN_AFTER_TICK, also spawn yellow waste in z2 (optional)
+        if _cfg.RADIATION_SPAWN_ENABLED and self.tick >= Z2_SPAWN_AFTER_TICK:
             if self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
                 z2_count = max(1, int(RADIATION_SPAWN_COUNT * 0.5))
                 for _ in range(z2_count):
@@ -331,9 +329,43 @@ class RobotMission:
         for robot in self.robots:
             robot.step_agent(self)
 
+        # Life pressure from carrying radioactive waste + decontamination recovery
+        if ENERGY_ENABLED:
+            for robot in self.robots:
+                if robot.pos in self.decontamination_zones:
+                    robot.energy = min(
+                        AGENT_MAX_ENERGY,
+                        robot.energy + HEALTH_RECOVERY_DECONTAMINATION,
+                    )
+
+                carry_loss = 0
+                for waste_type in robot.inventory:
+                    if waste_type == "green":
+                        carry_loss += HEALTH_LOSS_CARRY_GREEN
+                    elif waste_type == "yellow":
+                        carry_loss += HEALTH_LOSS_CARRY_YELLOW
+                    elif waste_type == "red":
+                        carry_loss += HEALTH_LOSS_CARRY_RED
+
+                if carry_loss > 0:
+                    robot.energy = max(0, robot.energy - carry_loss)
+                robot.knowledge["energy"] = robot.energy
+
         # Check game over
         total = sum(len(wl) for wl in self.waste_map.values())
         if total >= _cfg.MAX_RADIATION_THRESHOLD:
+            self.mission_success = False
+            self.game_over = True
+
+        # Failure if any robot runs out of life
+        if ENERGY_ENABLED and any(r.energy <= 0 for r in self.robots):
+            self.mission_success = False
+            self.game_over = True
+
+        # Mission success when nothing remains to treat
+        inventories_remaining = sum(len(r.inventory) for r in self.robots)
+        if total == 0 and inventories_remaining == 0:
+            self.mission_success = True
             self.game_over = True
 
         # Record analytics
@@ -350,6 +382,12 @@ class RobotMission:
         else:
             avg_energy = AGENT_MAX_ENERGY
 
+        def _avg_energy_for(robot_type):
+            typed = [r.energy for r in self.robots if r.robot_type == robot_type]
+            if not typed:
+                return AGENT_MAX_ENERGY
+            return sum(typed) / len(typed)
+
         self.history["tick"].append(self.tick)
         self.history["total_waste"].append(total)
         self.history["green_waste"].append(green_count)
@@ -358,6 +396,9 @@ class RobotMission:
         self.history["waste_disposed"].append(self.waste_disposed)
         self.history["avg_energy"].append(avg_energy)
         self.history["messages_sent"].append(self.total_messages_sent)
+        self.history["avg_energy_green"].append(_avg_energy_for("green"))
+        self.history["avg_energy_yellow"].append(_avg_energy_for("yellow"))
+        self.history["avg_energy_red"].append(_avg_energy_for("red"))
 
         self.score += 1  # survival bonus
 

@@ -60,3 +60,15 @@ class WasteDisposalZone:
     @property
     def pos(self):
         return (self.x, self.y)
+
+
+class DecontaminationZone:
+    """Marks a cell as a decontamination area where robots recover life."""
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    @property
+    def pos(self):
+        return (self.x, self.y)

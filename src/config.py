@@ -67,6 +67,7 @@ RADIATION_SPAWN_INTERVAL = 90   # ticks between new green waste spawns
 RADIATION_SPAWN_COUNT = 2       # green wastes per spawn event
 RADIATION_SPAWN_RAMP = 0.05     # extra waste added to spawn count each event
                                 #   (e.g. after 50 events: 2 + 50*0.02 = 3 per spawn)
+RADIATION_SPAWN_ENABLED = False  # False = finite mission, waste only at start
 
 # Game over
 MAX_RADIATION_THRESHOLD = 80    # if total waste on the grid reaches this -> MELTDOWN
@@ -77,9 +78,9 @@ MAX_RADIATION_THRESHOLD = 80    # if total waste on the grid reaches this -> MEL
 # =============================================================================
 
 # How many of each robot type to create
-NUM_GREEN_ROBOTS = 4            # operate in zone 1 only
-NUM_YELLOW_ROBOTS = 3           # operate in zones 1-2
-NUM_RED_ROBOTS = 2              # operate in zones 1-2-3
+NUM_GREEN_ROBOTS = 1            # operate in zone 1 only
+NUM_YELLOW_ROBOTS = 1           # operate in zones 1-2
+NUM_RED_ROBOTS = 1              # operate in zones 1-2-3
 
 # Agent capabilities
 AGENT_MAX_CARRY = 10            # max waste items a single robot can hold
@@ -149,15 +150,6 @@ CHART_HISTORY_LENGTH = 300      # max data points shown on charts
 
 
 # =============================================================================
-# 8. WASTE MUTATION
-# =============================================================================
-
-WASTE_MUTATION_ENABLED = True           # toggle waste mutation on/off
-WASTE_MUTATION_GREEN_TICKS = 60         # ticks before green waste mutates to yellow
-WASTE_MUTATION_YELLOW_TICKS = 80        # ticks before yellow waste mutates to red
-
-
-# =============================================================================
 # 9. ENERGY SYSTEM
 # =============================================================================
 
@@ -168,6 +160,18 @@ ENERGY_COST_PICKUP = 2                  # energy cost to pick up waste
 ENERGY_COST_TRANSFORM = 5              # energy cost to transform waste
 ENERGY_COST_DROP = 1                    # energy cost to drop waste
 ENERGY_RECHARGE_IDLE = 3               # energy regained per idle tick
+
+# Additional health (life) pressure while transporting radioactive waste
+HEALTH_LOSS_CARRY_GREEN = 2             # per tick while carrying green waste
+HEALTH_LOSS_CARRY_YELLOW = 3            # per tick while carrying yellow waste
+HEALTH_LOSS_CARRY_RED = 2               # per tick while carrying red waste
+
+# Decontamination zones (life recovery)
+DECONTAMINATION_ENABLED = True
+DECONTAMINATION_ZONES_FIXED = True      # one zone centered in each world zone
+HEALTH_RECOVERY_DECONTAMINATION = 5     # life recovered per tick in decon zone
+HEALTH_LOW_THRESHOLD = 30               # below this, agents prioritize decontamination
+HEALTH_RESUME_THRESHOLD = 45            # leave survival mode only above this level
 
 
 # =============================================================================
@@ -180,7 +184,17 @@ Z2_SPAWN_AFTER_TICK = 500              # after this tick, yellow waste spawns in
 
 
 # =============================================================================
-# 11. SOUND
+# 11. DECISION SYSTEM
+# =============================================================================
+
+DECISION_INTENTION_HOLD_TICKS = 3       # keep chosen intention for at least N ticks
+DECISION_SWITCH_MARGIN = 2.0            # switch only if new score is better by this margin
+KNOWLEDGE_WASTE_TTL = 35                # ticks before forgetting unseen waste location
+STUCK_REPLAN_TICKS = 4                  # force replanning when no progress
+
+
+# =============================================================================
+# 12. SOUND
 # =============================================================================
 
 SOUND_ENABLED = True                    # toggle sound on/off
@@ -188,7 +202,7 @@ SOUND_VOLUME = 0.3                      # master volume (0.0 - 1.0)
 
 
 # =============================================================================
-# 12. COMMUNICATION
+# 13. COMMUNICATION
 # =============================================================================
 
 COMMUNICATION_ENABLED = True            # toggle agent communication on/off

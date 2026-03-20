@@ -120,6 +120,7 @@ class Renderer:
 
         self._draw_grid(model, anim_frame)
         self._draw_zone_borders()
+        self._draw_decontamination(model, anim_frame)
         self._draw_disposal(model, anim_frame)
         self._draw_waste(model, anim_frame)
         self._draw_robots(model, anim_frame)
@@ -140,7 +141,10 @@ class Renderer:
             self._draw_human_hud(model)
 
         if model.game_over:
-            self._draw_game_over(model)
+            if getattr(model, "mission_success", False):
+                self._draw_mission_success(model)
+            else:
+                self._draw_game_over(model)
 
     def _draw_grid(self, model, anim_frame):
         gx = self.grid_offset_x + self._shake_offset[0]
@@ -231,6 +235,25 @@ class Renderer:
             sprite = self.sprite_cache.get("disposal", 0, anim_frame)
             if sprite:
                 self.screen.blit(sprite, (sx, sy))
+
+    def _draw_decontamination(self, model, anim_frame):
+        pulse = 0.5 + 0.5 * math.sin(self.frame_count * 0.08)
+        for pos in getattr(model, "decontamination_zones", set()):
+            sx, sy = self._grid_to_screen(*pos)
+            # Base pad
+            pygame.draw.rect(self.screen, (40, 120, 160),
+                             (sx + 5, sy + 5, CELL_SIZE - 10, CELL_SIZE - 10),
+                             border_radius=4)
+            # Inner glow
+            alpha = int(70 + 80 * pulse)
+            glow = pygame.Surface((CELL_SIZE - 16, CELL_SIZE - 16), pygame.SRCALPHA)
+            glow.fill((100, 220, 255, alpha))
+            self.screen.blit(glow, (sx + 8, sy + 8))
+            # Cross icon
+            cx = sx + CELL_SIZE // 2
+            cy = sy + CELL_SIZE // 2
+            pygame.draw.rect(self.screen, (220, 250, 255), (cx - 1, cy - 6, 2, 12))
+            pygame.draw.rect(self.screen, (220, 250, 255), (cx - 6, cy - 1, 12, 2))
 
     def _draw_robots(self, model, anim_frame):
         for robot in model.robots:
@@ -352,9 +375,11 @@ class Renderer:
 
         # Total waste vs threshold
         y = self._draw_mini_chart(
-            model, sb_x, y, sb_w, 130, "TOTAL vs LIMIT",
-            [("total_waste", (220, 140, 60))],
-            threshold=_cfg.MAX_RADIATION_THRESHOLD)
+            model, sb_x, y, sb_w, 130, "LIFE BY ROBOT TYPE",
+            [("avg_energy_green", COLOR_GREEN_ROBOT),
+             ("avg_energy_yellow", COLOR_YELLOW_ROBOT),
+             ("avg_energy_red", COLOR_RED_ROBOT)],
+            threshold=AGENT_MAX_ENERGY)
 
         y += 16
 
@@ -545,7 +570,7 @@ class Renderer:
 
         # Energy bar
         if ENERGY_ENABLED:
-            nrg_label = self.font.render("NRG:", True, (160, 160, 180))
+            nrg_label = self.font.render("LIFE:", True, (160, 160, 180))
             self.screen.blit(nrg_label, (x, bar_y + 7))
             x += nrg_label.get_width() + 4
 
@@ -629,6 +654,28 @@ class Renderer:
             hint_rect = hint.get_rect(center=(WINDOW_WIDTH // 2,
                                                WINDOW_HEIGHT // 2 + 60))
             self.screen.blit(hint, hint_rect)
+
+    def _draw_mission_success(self, model):
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 25, 0, 170))
+        self.screen.blit(overlay, (0, 0))
+
+        ok_text = self.font_huge.render("MISSION COMPLETE", True, (120, 240, 140))
+        rect = ok_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 30))
+        self.screen.blit(ok_text, rect)
+
+        stats_text = self.font_title.render(
+            f"Score: {model.score}     Disposed: {model.waste_disposed}     "
+            f"Finished in: {model.tick} ticks",
+            True, TEXT_COLOR)
+        stats_rect = stats_text.get_rect(center=(WINDOW_WIDTH // 2,
+                                                  WINDOW_HEIGHT // 2 + 20))
+        self.screen.blit(stats_text, stats_rect)
+
+        hint = self.font_large.render("[ R ] Restart     [ Q ] Quit", True, (210, 240, 210))
+        hint_rect = hint.get_rect(center=(WINDOW_WIDTH // 2,
+                                           WINDOW_HEIGHT // 2 + 60))
+        self.screen.blit(hint, hint_rect)
 
     def _draw_text(self, text, x, y, font, color):
         surf = font.render(text, True, color)

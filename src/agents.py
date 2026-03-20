@@ -16,8 +16,14 @@ from src.config import (
     AGENT_MAX_CARRY, GREEN_TO_YELLOW_COST, YELLOW_TO_RED_COST,
     ENERGY_ENABLED, AGENT_MAX_ENERGY,
     ENERGY_COST_MOVE, ENERGY_COST_PICKUP, ENERGY_COST_TRANSFORM,
-    ENERGY_COST_DROP, ENERGY_RECHARGE_IDLE,
+    ENERGY_COST_DROP,
     COMMUNICATION_ENABLED,
+    HEALTH_LOW_THRESHOLD,
+    HEALTH_RESUME_THRESHOLD,
+    DECISION_INTENTION_HOLD_TICKS,
+    DECISION_SWITCH_MARGIN,
+    KNOWLEDGE_WASTE_TTL,
+    STUCK_REPLAN_TICKS,
 )
 
 
@@ -32,6 +38,13 @@ ACTION_DROP = "drop"
 ACTION_IDLE = "idle"
 
 ALL_MOVES = [ACTION_MOVE_UP, ACTION_MOVE_DOWN, ACTION_MOVE_LEFT, ACTION_MOVE_RIGHT]
+
+INTENT_SURVIVE = "survive"
+INTENT_DELIVER = "deliver"
+INTENT_TRANSFORM = "transform"
+INTENT_PICKUP = "pickup"
+INTENT_SEEK_WASTE = "seek_waste"
+INTENT_EXPLORE = "explore"
 
 # Energy costs per action
 _ACTION_ENERGY_COST = {
@@ -65,14 +78,22 @@ class RobotAgent:
         self.mailbox = []          # incoming messages for communication
         self.knowledge = {
             "pos": (x, y),
+            "prev_pos": (x, y),
             "percepts": {},
             "inventory": [],
             "step_count": 0,
-            "known_waste": {},      # (x,y) -> waste_type
+            "known_waste": {},      # (x,y) -> {"type": str, "ttl": int}
+            "known_decontamination": set(),
             "last_action": None,
             "facing": "right",
             "energy": self.energy,
             "messages": [],         # messages received this tick
+            "current_intention": INTENT_EXPLORE,
+            "intention_target": None,
+            "intention_lock": 0,
+            "stuck_counter": 0,
+            "explore_target": None,
+            "survival_mode": False,
         }
         self.anim_frame = 0
 
@@ -123,12 +144,8 @@ class RobotAgent:
 
         # Energy bookkeeping
         if ENERGY_ENABLED:
-            if action == ACTION_IDLE:
-                self.energy = min(AGENT_MAX_ENERGY,
-                                  self.energy + ENERGY_RECHARGE_IDLE)
-            else:
-                cost = _ACTION_ENERGY_COST.get(action, 0)
-                self.energy = max(0, self.energy - cost)
+            cost = _ACTION_ENERGY_COST.get(action, 0)
+            self.energy = max(0, self.energy - cost)
             self.knowledge["energy"] = self.energy
 
         if new_percepts:
@@ -163,18 +180,38 @@ class RobotAgent:
             self.send_message(model, "area_clear", {"pos": pos})
 
     def _update_knowledge(self, percepts):
+        prev_pos = self.knowledge.get("pos", (self.x, self.y))
         self.knowledge["pos"] = (self.x, self.y)
+        self.knowledge["prev_pos"] = prev_pos
         self.knowledge["percepts"] = percepts
         self.knowledge["inventory"] = list(self.inventory)
         self.knowledge["energy"] = self.energy
 
+        moved = (self.x, self.y) != prev_pos
+        last_action = self.knowledge.get("last_action")
+        if moved or last_action in (ACTION_PICK_UP, ACTION_TRANSFORM, ACTION_DROP):
+            self.knowledge["stuck_counter"] = 0
+        elif last_action in ALL_MOVES:
+            self.knowledge["stuck_counter"] = self.knowledge.get("stuck_counter", 0) + 1
+
+        for known_pos in list(self.knowledge["known_waste"].keys()):
+            self.knowledge["known_waste"][known_pos]["ttl"] -= 1
+            if self.knowledge["known_waste"][known_pos]["ttl"] <= 0:
+                self.knowledge["known_waste"].pop(known_pos, None)
+
         # Remember waste locations from percepts
         for pos, contents in percepts.items():
             if contents.get("waste"):
-                for w in contents["waste"]:
-                    self.knowledge["known_waste"][pos] = w
+                for waste_type in contents["waste"]:
+                    self.knowledge["known_waste"][pos] = {
+                        "type": waste_type,
+                        "ttl": KNOWLEDGE_WASTE_TTL,
+                    }
             else:
                 self.knowledge["known_waste"].pop(pos, None)
+
+            if contents.get("decontamination"):
+                self.knowledge["known_decontamination"].add(pos)
 
     def deliberate(self, knowledge):
         raise NotImplementedError
@@ -237,6 +274,140 @@ class RobotAgent:
                 moves.append(action)
         return random.choice(moves) if moves else ACTION_IDLE
 
+    @staticmethod
+    def _manhattan(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    def _nearest_known_waste(self, knowledge, waste_type):
+        pos = knowledge["pos"]
+        known_waste = knowledge.get("known_waste", {})
+        candidates = [
+            p for p, info in known_waste.items()
+            if info.get("type") == waste_type and self._can_move_to(p[0], p[1], self.allowed_zones)
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda p: self._manhattan(pos, p))
+
+    def _select_intention(self, knowledge, candidates):
+        """Choose intention with commitment/hysteresis.
+        candidates: list[(intent, score, target)]
+        """
+        if not candidates:
+            return INTENT_EXPLORE, None
+
+        current_intent = knowledge.get("current_intention", INTENT_EXPLORE)
+        current_target = knowledge.get("intention_target")
+        lock = knowledge.get("intention_lock", 0)
+
+        if knowledge.get("stuck_counter", 0) >= STUCK_REPLAN_TICKS:
+            lock = 0
+
+        scored = sorted(candidates, key=lambda item: item[1], reverse=True)
+        best_intent, best_score, best_target = scored[0]
+        current_entry = next((entry for entry in scored if entry[0] == current_intent), None)
+
+        if current_entry and lock > 0:
+            current_score = current_entry[1]
+            new_target = current_entry[2] if current_entry[2] is not None else current_target
+            if current_score + DECISION_SWITCH_MARGIN >= best_score:
+                knowledge["current_intention"] = current_intent
+                knowledge["intention_target"] = new_target
+                knowledge["intention_lock"] = max(0, lock - 1)
+                return current_intent, new_target
+
+        knowledge["current_intention"] = best_intent
+        knowledge["intention_target"] = best_target
+        knowledge["intention_lock"] = DECISION_INTENTION_HOLD_TICKS
+        return best_intent, best_target
+
+    def _needs_survival_mode(self, knowledge):
+        """Low-health hysteresis to avoid oscillation around the threshold."""
+        if not ENERGY_ENABLED:
+            knowledge["survival_mode"] = False
+            return False
+
+        energy = knowledge.get("energy", AGENT_MAX_ENERGY)
+        survival_mode = knowledge.get("survival_mode", False)
+
+        if survival_mode:
+            if energy >= HEALTH_RESUME_THRESHOLD:
+                knowledge["survival_mode"] = False
+            else:
+                knowledge["survival_mode"] = True
+        else:
+            if energy <= HEALTH_LOW_THRESHOLD:
+                knowledge["survival_mode"] = True
+
+        return knowledge.get("survival_mode", False)
+
+    def _explore_with_target(self, knowledge, min_col=0, max_col=None):
+        """Explore with a persistent waypoint to avoid dithering/random bouncing."""
+        pos = knowledge["pos"]
+        if max_col is None:
+            max_col = GRID_COLS - 1
+
+        def _valid_target(target):
+            if not target:
+                return False
+            tx, ty = target
+            if tx < min_col or tx > max_col:
+                return False
+            return self._can_move_to(tx, ty, self.allowed_zones)
+
+        target = knowledge.get("explore_target")
+        reached = target is not None and self._manhattan(pos, target) <= 1
+        if reached:
+            target = None
+
+        if not _valid_target(target):
+            for _ in range(20):
+                tx = random.randint(min_col, max_col)
+                ty = random.randint(0, GRID_ROWS - 1)
+                if self._can_move_to(tx, ty, self.allowed_zones):
+                    target = (tx, ty)
+                    break
+
+        if not target:
+            return self._random_move(pos, self.allowed_zones)
+
+        knowledge["explore_target"] = target
+        knowledge["facing"] = "right" if target[0] > pos[0] else "left"
+        return self._direction_toward(pos, target, self.allowed_zones)
+
+    def _decontamination_action(self, knowledge):
+        """Return an action toward a decontamination zone when life is low."""
+        pos = knowledge["pos"]
+        known_decon = list(knowledge.get("known_decontamination", set()))
+
+        if pos in known_decon:
+            return ACTION_IDLE
+
+        if known_decon:
+            closest = min(known_decon,
+                          key=lambda p: abs(p[0] - pos[0]) + abs(p[1] - pos[1]))
+            knowledge["facing"] = "right" if closest[0] > pos[0] else "left"
+            return RobotAgent._direction_toward(pos, closest, self.allowed_zones)
+
+        # No known zone yet: move toward the nearest center of an accessible zone
+        mid_row = GRID_ROWS // 2
+        default_targets = []
+        if 1 in self.allowed_zones:
+            default_targets.append(((0 + (ZONE_1_END - 1)) // 2, mid_row))
+        if 2 in self.allowed_zones:
+            default_targets.append(((ZONE_1_END + (ZONE_2_END - 1)) // 2, mid_row))
+        if 3 in self.allowed_zones:
+            default_targets.append(((ZONE_2_END + (GRID_COLS - 1)) // 2, mid_row))
+
+        if default_targets:
+            target = min(default_targets,
+                         key=lambda p: abs(p[0] - pos[0]) + abs(p[1] - pos[1]))
+        else:
+            target = (pos[0], mid_row)
+
+        knowledge["facing"] = "right" if target[0] > pos[0] else "left"
+        return RobotAgent._direction_toward(pos, target, self.allowed_zones)
+
 
 class GreenAgent(RobotAgent):
     """Collects green waste in z1, transforms 2 green -> 1 yellow, transports east."""
@@ -252,59 +423,44 @@ class GreenAgent(RobotAgent):
         inv = knowledge["inventory"]
         percepts = knowledge["percepts"]
         green_count = inv.count("green")
-
-        # Energy check: if low energy, idle to recharge
-        if ENERGY_ENABLED and knowledge.get("energy", 100) < ENERGY_COST_TRANSFORM:
-            # Only idle if we can't do anything useful
-            if knowledge.get("energy", 100) < ENERGY_COST_MOVE:
-                return ACTION_IDLE
-
-        # If we have a yellow waste, move east to drop it at zone boundary
-        if "yellow" in inv:
-            knowledge["facing"] = "right"
-            # Drop at the eastern edge of z1 (border with z2)
-            if pos[0] >= ZONE_1_END - 1:
-                if not self.has_energy_for(ACTION_DROP):
-                    return ACTION_IDLE
-                return ACTION_DROP
-            if not self.has_energy_for(ACTION_MOVE_RIGHT):
-                return ACTION_IDLE
-            return GreenAgent._direction_toward(pos, (ZONE_1_END - 1, pos[1]),
-                                                self.allowed_zones)
-
-        # If we have 2+ green, transform
-        if green_count >= self.transform_cost:
-            if not self.has_energy_for(ACTION_TRANSFORM):
-                return ACTION_IDLE
-            return ACTION_TRANSFORM
-
-        # If there's green waste on current cell, pick it up
-        if pos in percepts:
-            cell = percepts[pos]
-            if cell.get("waste"):
-                for w in cell["waste"]:
-                    if w == "green" and self.can_carry_more():
-                        if not self.has_energy_for(ACTION_PICK_UP):
-                            return ACTION_IDLE
-                        return ACTION_PICK_UP
-
-        # Check messages for waste tips
+        border_target = (ZONE_1_END - 1, pos[1])
         msg_target = self._check_messages_for_target(knowledge)
-        if msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
-            knowledge["facing"] = "right" if msg_target[0] > pos[0] else "left"
-            return GreenAgent._direction_toward(pos, msg_target, self.allowed_zones)
+        nearest_green = self._nearest_known_waste(knowledge, "green")
+        has_green_here = pos in percepts and "green" in percepts[pos].get("waste", [])
 
-        # Look for known green waste nearby
-        known = knowledge["known_waste"]
-        green_positions = [p for p, w in known.items() if w == "green"]
-        if green_positions:
-            closest = min(green_positions,
-                          key=lambda p: abs(p[0]-pos[0]) + abs(p[1]-pos[1]))
-            knowledge["facing"] = "right" if closest[0] > pos[0] else "left"
-            return GreenAgent._direction_toward(pos, closest, self.allowed_zones)
+        candidates = []
+        if self._needs_survival_mode(knowledge):
+            candidates.append((INTENT_SURVIVE, 200.0, None))
+        else:
+            if "yellow" in inv:
+                candidates.append((INTENT_DELIVER, 120.0 - self._manhattan(pos, border_target), border_target))
+            if green_count >= self.transform_cost:
+                candidates.append((INTENT_TRANSFORM, 105.0, None))
+            if has_green_here and self.can_carry_more():
+                candidates.append((INTENT_PICKUP, 95.0, pos))
+            if msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
+                candidates.append((INTENT_SEEK_WASTE, 85.0 - self._manhattan(pos, msg_target), msg_target))
+            if nearest_green:
+                candidates.append((INTENT_SEEK_WASTE, 70.0 - self._manhattan(pos, nearest_green), nearest_green))
+            candidates.append((INTENT_EXPLORE, 20.0, None))
 
-        # Wander
-        return GreenAgent._random_move(pos, self.allowed_zones)
+        intent, target = self._select_intention(knowledge, candidates)
+
+        if intent == INTENT_SURVIVE:
+            return self._decontamination_action(knowledge)
+        if intent == INTENT_DELIVER:
+            if pos[0] >= ZONE_1_END - 1:
+                return ACTION_DROP if self.has_energy_for(ACTION_DROP) else ACTION_IDLE
+            knowledge["facing"] = "right"
+            return GreenAgent._direction_toward(pos, target or border_target, self.allowed_zones)
+        if intent == INTENT_TRANSFORM:
+            return ACTION_TRANSFORM if self.has_energy_for(ACTION_TRANSFORM) else ACTION_IDLE
+        if intent == INTENT_PICKUP:
+            return ACTION_PICK_UP if self.has_energy_for(ACTION_PICK_UP) else ACTION_IDLE
+        if intent == INTENT_SEEK_WASTE and target:
+            knowledge["facing"] = "right" if target[0] > pos[0] else "left"
+            return GreenAgent._direction_toward(pos, target, self.allowed_zones)
+        return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_1_END - 1)
 
 
 class YellowAgent(RobotAgent):
@@ -316,64 +472,62 @@ class YellowAgent(RobotAgent):
     transform_cost = YELLOW_TO_RED_COST
     output_waste = "red"
 
+    def _explore_action(self, knowledge):
+        """Yellow explores z1-z2 with a patrol bias near the handoff border."""
+        pos = knowledge["pos"]
+        border_bias = (ZONE_1_END, pos[1])
+        if abs(pos[0] - ZONE_1_END) > 5:
+            return YellowAgent._direction_toward(pos, border_bias, self.allowed_zones)
+        return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_2_END - 1)
+
     def deliberate(self, knowledge):
         pos = knowledge["pos"]
         inv = knowledge["inventory"]
         percepts = knowledge["percepts"]
         yellow_count = inv.count("yellow")
-
-        # Energy check
-        if ENERGY_ENABLED and knowledge.get("energy", 100) < ENERGY_COST_MOVE:
-            return ACTION_IDLE
-
-        # If we have a red waste, move east to drop at z2 border
-        if "red" in inv:
-            knowledge["facing"] = "right"
-            if pos[0] >= ZONE_2_END - 1:
-                if not self.has_energy_for(ACTION_DROP):
-                    return ACTION_IDLE
-                return ACTION_DROP
-            return YellowAgent._direction_toward(pos, (ZONE_2_END - 1, pos[1]),
-                                                 self.allowed_zones)
-
-        # Transform if we have enough
-        if yellow_count >= self.transform_cost:
-            if not self.has_energy_for(ACTION_TRANSFORM):
-                return ACTION_IDLE
-            return ACTION_TRANSFORM
-
-        # Pick up yellow on current cell
-        if pos in percepts:
-            cell = percepts[pos]
-            if cell.get("waste"):
-                for w in cell["waste"]:
-                    if w == "yellow" and self.can_carry_more():
-                        if not self.has_energy_for(ACTION_PICK_UP):
-                            return ACTION_IDLE
-                        return ACTION_PICK_UP
-
-        # Check messages for waste tips
+        border_target = (ZONE_2_END - 1, pos[1])
         msg_target = self._check_messages_for_target(knowledge)
-        if msg_target:
-            knowledge["facing"] = "right" if msg_target[0] > pos[0] else "left"
-            return YellowAgent._direction_toward(pos, msg_target, self.allowed_zones)
+        nearest_yellow = self._nearest_known_waste(knowledge, "yellow")
+        has_yellow_here = pos in percepts and "yellow" in percepts[pos].get("waste", [])
 
-        # Seek known yellow waste
-        known = knowledge["known_waste"]
-        yellow_positions = [p for p, w in known.items() if w == "yellow"]
-        if yellow_positions:
-            closest = min(yellow_positions,
-                          key=lambda p: abs(p[0]-pos[0]) + abs(p[1]-pos[1]))
-            knowledge["facing"] = "right" if closest[0] > pos[0] else "left"
-            return YellowAgent._direction_toward(pos, closest, self.allowed_zones)
+        candidates = []
+        if self._needs_survival_mode(knowledge):
+            candidates.append((INTENT_SURVIVE, 200.0, None))
+        else:
+            if "red" in inv:
+                candidates.append((INTENT_DELIVER, 120.0 - self._manhattan(pos, border_target), border_target))
+            if yellow_count >= self.transform_cost:
+                candidates.append((INTENT_TRANSFORM, 105.0, None))
+            if has_yellow_here and self.can_carry_more():
+                candidates.append((INTENT_PICKUP, 95.0, pos))
+            if msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
+                candidates.append((INTENT_SEEK_WASTE, 85.0 - self._manhattan(pos, msg_target), msg_target))
+            if nearest_yellow:
+                candidates.append((INTENT_SEEK_WASTE, 70.0 - self._manhattan(pos, nearest_yellow), nearest_yellow))
+            patrol_target = (ZONE_1_END, pos[1])
+            candidates.append((INTENT_EXPLORE, 20.0 - self._manhattan(pos, patrol_target), patrol_target))
 
-        # Patrol near z1/z2 border to pick up dropped waste
-        border_x = ZONE_1_END
-        if abs(pos[0] - border_x) > 3:
-            return YellowAgent._direction_toward(pos, (border_x, pos[1]),
-                                                 self.allowed_zones)
+        intent, target = self._select_intention(knowledge, candidates)
 
-        return YellowAgent._random_move(pos, self.allowed_zones)
+        if intent == INTENT_SURVIVE:
+            return self._decontamination_action(knowledge)
+        if intent == INTENT_DELIVER:
+            if pos[0] >= ZONE_2_END - 1:
+                return ACTION_DROP if self.has_energy_for(ACTION_DROP) else ACTION_IDLE
+            knowledge["facing"] = "right"
+            return YellowAgent._direction_toward(pos, target or border_target, self.allowed_zones)
+        if intent == INTENT_TRANSFORM:
+            return ACTION_TRANSFORM if self.has_energy_for(ACTION_TRANSFORM) else ACTION_IDLE
+        if intent == INTENT_PICKUP:
+            return ACTION_PICK_UP if self.has_energy_for(ACTION_PICK_UP) else ACTION_IDLE
+        if intent == INTENT_SEEK_WASTE and target:
+            knowledge["facing"] = "right" if target[0] > pos[0] else "left"
+            return YellowAgent._direction_toward(pos, target, self.allowed_zones)
+        if intent == INTENT_EXPLORE:
+            return self._explore_action(knowledge)
+        if target:
+            return YellowAgent._direction_toward(pos, target, self.allowed_zones)
+        return self._explore_action(knowledge)
 
 
 class RedAgent(RobotAgent):
@@ -385,58 +539,57 @@ class RedAgent(RobotAgent):
     transform_cost = 0
     output_waste = None
 
+    def _explore_action(self, knowledge):
+        """Red explores with a bias toward z2-z3 where red waste/disposal flow happens."""
+        pos = knowledge["pos"]
+        z23_mid = ((ZONE_2_END + (GRID_COLS - 1)) // 2, pos[1])
+        if pos[0] < ZONE_2_END - 2:
+            return RedAgent._direction_toward(pos, z23_mid, self.allowed_zones)
+        return self._explore_with_target(knowledge, min_col=ZONE_1_END, max_col=GRID_COLS - 1)
+
     def deliberate(self, knowledge):
         pos = knowledge["pos"]
         inv = knowledge["inventory"]
         percepts = knowledge["percepts"]
-
-        # Energy check
-        if ENERGY_ENABLED and knowledge.get("energy", 100) < ENERGY_COST_MOVE:
-            return ACTION_IDLE
-
-        # If carrying red waste, go to disposal zone
-        if "red" in inv:
-            knowledge["facing"] = "right"
-            disposal_col = GRID_COLS - 1
-            if pos[0] >= disposal_col:
-                if not self.has_energy_for(ACTION_DROP):
-                    return ACTION_IDLE
-                return ACTION_DROP
-            return RedAgent._direction_toward(pos, (disposal_col, pos[1]),
-                                              self.allowed_zones)
-
-        # Pick up red on current cell
-        if pos in percepts:
-            cell = percepts[pos]
-            if cell.get("waste"):
-                for w in cell["waste"]:
-                    if w == "red" and self.can_carry_more():
-                        if not self.has_energy_for(ACTION_PICK_UP):
-                            return ACTION_IDLE
-                        return ACTION_PICK_UP
-
-        # Check messages for waste tips
+        disposal_target = (GRID_COLS - 1, pos[1])
         msg_target = self._check_messages_for_target(knowledge)
-        if msg_target:
-            knowledge["facing"] = "right" if msg_target[0] > pos[0] else "left"
-            return RedAgent._direction_toward(pos, msg_target, self.allowed_zones)
+        nearest_red = self._nearest_known_waste(knowledge, "red")
+        has_red_here = pos in percepts and "red" in percepts[pos].get("waste", [])
 
-        # Seek known red waste
-        known = knowledge["known_waste"]
-        red_positions = [p for p, w in known.items() if w == "red"]
-        if red_positions:
-            closest = min(red_positions,
-                          key=lambda p: abs(p[0]-pos[0]) + abs(p[1]-pos[1]))
-            knowledge["facing"] = "right" if closest[0] > pos[0] else "left"
-            return RedAgent._direction_toward(pos, closest, self.allowed_zones)
+        candidates = []
+        if self._needs_survival_mode(knowledge):
+            candidates.append((INTENT_SURVIVE, 200.0, None))
+        else:
+            if "red" in inv:
+                candidates.append((INTENT_DELIVER, 125.0 - self._manhattan(pos, disposal_target), disposal_target))
+            if has_red_here and self.can_carry_more():
+                candidates.append((INTENT_PICKUP, 95.0, pos))
+            if msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
+                candidates.append((INTENT_SEEK_WASTE, 85.0 - self._manhattan(pos, msg_target), msg_target))
+            if nearest_red:
+                candidates.append((INTENT_SEEK_WASTE, 70.0 - self._manhattan(pos, nearest_red), nearest_red))
+            patrol_target = (ZONE_2_END, pos[1])
+            candidates.append((INTENT_EXPLORE, 20.0 - self._manhattan(pos, patrol_target), patrol_target))
 
-        # Patrol near z2/z3 border
-        border_x = ZONE_2_END
-        if abs(pos[0] - border_x) > 3:
-            return RedAgent._direction_toward(pos, (border_x, pos[1]),
-                                              self.allowed_zones)
+        intent, target = self._select_intention(knowledge, candidates)
 
-        return RedAgent._random_move(pos, self.allowed_zones)
+        if intent == INTENT_SURVIVE:
+            return self._decontamination_action(knowledge)
+        if intent == INTENT_DELIVER:
+            if pos[0] >= GRID_COLS - 1:
+                return ACTION_DROP if self.has_energy_for(ACTION_DROP) else ACTION_IDLE
+            knowledge["facing"] = "right"
+            return RedAgent._direction_toward(pos, target or disposal_target, self.allowed_zones)
+        if intent == INTENT_PICKUP:
+            return ACTION_PICK_UP if self.has_energy_for(ACTION_PICK_UP) else ACTION_IDLE
+        if intent == INTENT_SEEK_WASTE and target:
+            knowledge["facing"] = "right" if target[0] > pos[0] else "left"
+            return RedAgent._direction_toward(pos, target, self.allowed_zones)
+        if intent == INTENT_EXPLORE:
+            return self._explore_action(knowledge)
+        if target:
+            return RedAgent._direction_toward(pos, target, self.allowed_zones)
+        return self._explore_action(knowledge)
 
 
 # =============================================================================

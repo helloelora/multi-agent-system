@@ -34,23 +34,20 @@ EVENT_COLORS = {
     "red": COLOR_RED_WASTE,
 }
 
+RUN_MODE_AUTO = "auto"
+RUN_MODE_STEP = "step"
+RUN_MODE_STEP5 = "step5"
+
 
 def _apply_settings(settings):
     """Write menu settings into the config module so the model picks them up."""
-    config.NUM_GREEN_ROBOTS = settings["num_green"]
-    config.NUM_YELLOW_ROBOTS = settings["num_yellow"]
-    config.NUM_RED_ROBOTS = settings["num_red"]
+    config.NUM_GREEN_ROBOTS = 1
+    config.NUM_YELLOW_ROBOTS = 1
+    config.NUM_RED_ROBOTS = 1
 
-    # If human mode, force chosen color's robot count to 1
+    # Human mode keeps one robot per color; selected color becomes player-controlled
     human_mode = settings.get("human_mode", False)
     human_color = settings.get("human_color")
-    if human_mode and human_color:
-        color_config_map = {
-            "green": "NUM_GREEN_ROBOTS",
-            "yellow": "NUM_YELLOW_ROBOTS",
-            "red": "NUM_RED_ROBOTS",
-        }
-        setattr(config, color_config_map[human_color], 1)
 
     config.INITIAL_GREEN_WASTE = settings["initial_waste"]
     config.MAX_RADIATION_THRESHOLD = settings["max_radiation"]
@@ -94,6 +91,8 @@ def main():
         frame_count = 0
         go_to_menu = False
         game_over_sound_played = False
+        run_mode = settings.get("run_mode", RUN_MODE_AUTO)
+        step_budget = 0
 
         # Key mapping for human player actions
         _HUMAN_KEY_MAP = {
@@ -157,10 +156,25 @@ def main():
                         frame_count = 0
                         speed = 1
                         game_over_sound_played = False
+                        step_budget = 0
                     elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
                         speed = min(speed + 1, 10)
                     elif event.key == pygame.K_MINUS:
                         speed = max(speed - 1, 1)
+                    elif event.key == pygame.K_1:
+                        run_mode = RUN_MODE_AUTO
+                        step_budget = 0
+                    elif event.key == pygame.K_2:
+                        run_mode = RUN_MODE_STEP
+                        step_budget = 0
+                    elif event.key == pygame.K_3:
+                        run_mode = RUN_MODE_STEP5
+                        step_budget = 0
+                    elif event.key == pygame.K_n:
+                        if run_mode == RUN_MODE_STEP:
+                            step_budget += 1
+                        elif run_mode == RUN_MODE_STEP5:
+                            step_budget += 5
                     elif event.key == pygame.K_e:
                         # Export analytics report
                         report_dir = os.path.join(
@@ -178,11 +192,19 @@ def main():
                 break
 
             # Simulation stepping
-            if not paused and not model.game_over:
+            can_step_now = False
+            if run_mode == RUN_MODE_AUTO:
+                can_step_now = True
+            elif run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
+                can_step_now = step_budget > 0
+
+            if not paused and not model.game_over and can_step_now:
                 frame_count += 1
                 ticks_per_frame = max(1, config.AGENT_TICK_RATE // speed)
                 if frame_count % ticks_per_frame == 0:
                     model.step()
+                    if run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
+                        step_budget = max(0, step_budget - 1)
 
                     # Process events for particle effects and sounds
                     for evt_type, pos, data in model.events:
@@ -216,6 +238,19 @@ def main():
             if speed > 1:
                 spd_text = renderer.font.render(f"SPEED: {speed}x", True, (180, 180, 220))
                 screen.blit(spd_text, (WINDOW_WIDTH - 130, 8))
+
+            # Run mode indicator
+            mode_label = {
+                RUN_MODE_AUTO: "",
+                RUN_MODE_STEP: "MODE: STEP | PRESS N",
+                RUN_MODE_STEP5: "MODE: STEP x5 | PRESS N",
+            }[run_mode]
+            mode_text = renderer.font.render(mode_label, True, (180, 220, 255))
+            screen.blit(mode_text, (WINDOW_WIDTH - 330, 30))
+
+            if run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
+                budget_text = renderer.font.render(f"PENDING STEPS: {step_budget}", True, (220, 220, 180))
+                screen.blit(budget_text, (WINDOW_WIDTH - 250, 50))
 
             pygame.display.flip()
             clock.tick(FPS)
