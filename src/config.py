@@ -156,22 +156,22 @@ CHART_HISTORY_LENGTH = 300      # max data points shown on charts
 ENERGY_ENABLED = True                   # toggle energy system on/off
 AGENT_MAX_ENERGY = 100                  # starting and maximum energy
 ENERGY_COST_MOVE = 1                    # energy cost to move one cell
-ENERGY_COST_PICKUP = 2                  # energy cost to pick up waste
-ENERGY_COST_TRANSFORM = 5              # energy cost to transform waste
+ENERGY_COST_PICKUP = 1                  # energy cost to pick up waste
+ENERGY_COST_TRANSFORM = 3              # energy cost to transform waste
 ENERGY_COST_DROP = 1                    # energy cost to drop waste
 ENERGY_RECHARGE_IDLE = 3               # energy regained per idle tick
 
 # Additional health (life) pressure while transporting radioactive waste
-HEALTH_LOSS_CARRY_GREEN = 2             # per tick while carrying green waste
-HEALTH_LOSS_CARRY_YELLOW = 3            # per tick while carrying yellow waste
-HEALTH_LOSS_CARRY_RED = 2               # per tick while carrying red waste
+HEALTH_LOSS_CARRY_GREEN = 1             # per tick while carrying green waste
+HEALTH_LOSS_CARRY_YELLOW = 1.25         # per tick while carrying yellow waste
+HEALTH_LOSS_CARRY_RED = 2.6             # per tick while carrying red waste
 
 # Decontamination zones (life recovery)
 DECONTAMINATION_ENABLED = True
 DECONTAMINATION_ZONES_FIXED = True      # one zone centered in each world zone
-HEALTH_RECOVERY_DECONTAMINATION = 5     # life recovered per tick in decon zone
-HEALTH_LOW_THRESHOLD = 30               # below this, agents prioritize decontamination
-HEALTH_RESUME_THRESHOLD = 45            # leave survival mode only above this level
+HEALTH_RECOVERY_DECONTAMINATION = 8     # life recovered per tick in decon zone
+HEALTH_LOW_THRESHOLD = 35               # below this, agents prioritize decontamination
+HEALTH_RESUME_THRESHOLD = 90            # leave survival mode only above this level
 
 
 # =============================================================================
@@ -191,6 +191,17 @@ DECISION_INTENTION_HOLD_TICKS = 3       # keep chosen intention for at least N t
 DECISION_SWITCH_MARGIN = 2.0            # switch only if new score is better by this margin
 KNOWLEDGE_WASTE_TTL = 35                # ticks before forgetting unseen waste location
 STUCK_REPLAN_TICKS = 4                  # force replanning when no progress
+INTENTION_SWITCH_COOLDOWN_TICKS = 3     # minimum ticks before switching intention again
+RECENT_POS_WINDOW = 6                   # recent positions tracked to penalize back-and-forth
+RECENT_POS_PENALTY = 2.5                # penalty weight for recently visited cells
+FRONTIER_INFO_GAIN_WEIGHT = 2.0         # weight of information gain in exploration score
+TARGET_ENERGY_RISK_WEIGHT = 0.5         # weight of energy-risk penalty in target scoring
+
+# Role-specific utility tuning (Step 1 behavior tuning)
+YELLOW_SEEK_BASE_SCORE = 88.0           # make yellow actively chase known yellow waste
+YELLOW_MESSAGE_SEEK_BASE_SCORE = 92.0   # stronger than generic seek when a target is known via message
+GREEN_PICKUP_RISK_MARGIN = 16           # if energy close to low threshold + margin, penalize green pickup
+GREEN_PICKUP_RISK_PENALTY = 24.0        # reduces risky pickup-lock near survival threshold
 
 
 # =============================================================================
@@ -205,4 +216,21 @@ SOUND_VOLUME = 0.3                      # master volume (0.0 - 1.0)
 # 13. COMMUNICATION
 # =============================================================================
 
-COMMUNICATION_ENABLED = True            # toggle agent communication on/off
+COMMUNICATION_ENABLED = True            # Step 2: lightweight AUML-style communication enabled
+
+
+# =============================================================================
+# 13.b KNOWLEDGE MODEL
+# =============================================================================
+
+GLOBAL_KNOWLEDGE = False                # True: agents perceive whole map; False: local perception + memory
+
+
+# =============================================================================
+# 14. DEBUG LOGGING
+# =============================================================================
+
+DEBUG_STEP_LOG_ENABLED = True           # print robot states in terminal each simulation tick
+DEBUG_STEP_LOG_EVERY = 1                # print every N ticks
+DEBUG_HEATMAPS_ENABLED = True           # show live robot visit heatmaps in sidebar
+DEBUG_STEP_LOG_COMPACT = True           # compact one-line per robot with reason/target/next

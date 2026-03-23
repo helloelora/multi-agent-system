@@ -16,6 +16,7 @@ from src.config import (
     BG_COLOR, HUD_BG_COLOR, TEXT_COLOR,
     INITIAL_GREEN_WASTE, MAX_RADIATION_THRESHOLD,
     RADIATION_SPAWN_INTERVAL, AGENT_TICK_RATE,
+    GLOBAL_KNOWLEDGE,
 )
 from src.sprites import (
     SpriteCache, ROBOT_DESIGNS, ROBOT_PALETTES, DEFAULT_DESIGN,
@@ -77,6 +78,7 @@ class StartMenu:
             "max_radiation": MAX_RADIATION_THRESHOLD,
             "spawn_interval": RADIATION_SPAWN_INTERVAL,
             "tick_rate":    AGENT_TICK_RATE,
+            "global_knowledge": GLOBAL_KNOWLEDGE,
         }
         self._setting_ranges = {
             "initial_waste": (5, 50),
@@ -186,8 +188,17 @@ class StartMenu:
         elif run_btn_step5.collidepoint(mx, my):
             self._run_mode = "step5"
 
+        # Global knowledge toggle
+        gk_y = run_mode_y + 54
+        gk_on_btn = pygame.Rect(panel_x + 160, gk_y, 80, 24)
+        gk_off_btn = pygame.Rect(panel_x + 250, gk_y, 80, 24)
+        if gk_on_btn.collidepoint(mx, my):
+            self._settings["global_knowledge"] = True
+        elif gk_off_btn.collidepoint(mx, my):
+            self._settings["global_knowledge"] = False
+
         # Settings +/- buttons (shifted down to accommodate mode selector)
-        settings_y_offset = 430 if self._human_mode else 415
+        settings_y_offset = 500 if self._human_mode else 470
         sy = settings_y_offset
         for key in self._setting_order:
             btn_minus = pygame.Rect(panel_x + 260, sy, 28, 22)
@@ -368,10 +379,28 @@ class StartMenu:
         n_hint = self.font_sm.render("In STEP modes: press N for next step(s)", True, (130, 130, 150))
         self.screen.blit(n_hint, (panel_x + 100, run_mode_y + 30))
 
+        # Knowledge model selector
+        gk_y = run_mode_y + 54
+        gk_lbl = self.font_sm.render("Knowledge:", True, _SUBTITLE_COLOR)
+        self.screen.blit(gk_lbl, (panel_x, gk_y + 4))
+
+        gk_buttons = [
+            (True, "GLOBAL", pygame.Rect(panel_x + 160, gk_y, 80, 24)),
+            (False, "LOCAL", pygame.Rect(panel_x + 250, gk_y, 80, 24)),
+        ]
+        for enabled, label, rect in gk_buttons:
+            selected = self._settings.get("global_knowledge", False) == enabled
+            hovered = rect.collidepoint(mx, my)
+            bg = _HIGHLIGHT if selected else (_BTN_HOVER if hovered else _BTN_BG)
+            txt_col = (10, 10, 10) if selected else _BTN_TEXT
+            pygame.draw.rect(self.screen, bg, rect, border_radius=4)
+            txt = self.font_sm.render(label, True, txt_col)
+            self.screen.blit(txt, txt.get_rect(center=rect.center))
+
     def _draw_settings(self, mouse_pos):
         mx, my = mouse_pos
         panel_x = WINDOW_WIDTH // 2 - 200
-        sy = 430 if self._human_mode else 415
+        sy = 500 if self._human_mode else 470
 
         header = self.font_med.render("Settings", True, _ACCENT)
         self.screen.blit(header, (panel_x, sy - 28))

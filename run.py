@@ -10,6 +10,7 @@ Main entry point for the Radioactive Waste Mission simulation.
 
 import sys
 import os
+from datetime import datetime
 import pygame
 import src.config as config
 from src.config import (
@@ -53,6 +54,80 @@ def _apply_settings(settings):
     config.MAX_RADIATION_THRESHOLD = settings["max_radiation"]
     config.RADIATION_SPAWN_INTERVAL = settings["spawn_interval"]
     config.AGENT_TICK_RATE = settings["tick_rate"]
+    config.GLOBAL_KNOWLEDGE = bool(settings.get("global_knowledge", config.GLOBAL_KNOWLEDGE))
+
+
+def _print_step_debug(model):
+    """Print concise per-step robot state to terminal for debugging decisions."""
+    if not getattr(config, "DEBUG_STEP_LOG_ENABLED", False):
+        return
+    every = max(1, int(getattr(config, "DEBUG_STEP_LOG_EVERY", 1)))
+    if model.tick % every != 0:
+        return
+
+    green_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "green")
+    yellow_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "yellow")
+    red_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "red")
+
+    print(f"[T{model.tick:04d}] W={green_count}/{yellow_count}/{red_count} D={model.waste_disposed} Tot={model.total_waste()}")
+
+    for robot in sorted(model.robots, key=lambda item: item.agent_id):
+        intent = robot.knowledge.get("current_intention", "-")
+        action = robot.knowledge.get("last_action", "-")
+        survival_mode = robot.knowledge.get("survival_mode", False)
+        inventory = ",".join(robot.inventory) if robot.inventory else "-"
+        target = robot.knowledge.get("decision_target") or robot.knowledge.get("intention_target")
+        nav_next = robot.knowledge.get("nav_next")
+        reason = robot.knowledge.get("decision_reason", "")
+        if not reason:
+            reason = f"intent={intent}"
+
+        if getattr(config, "DEBUG_STEP_LOG_COMPACT", True):
+            print(
+                f"  R{robot.agent_id}:{robot.robot_type[0].upper()} pos={robot.pos} e={robot.energy:>3} "
+                f"a={action:<10} t={target if target is not None else '-'} n={nav_next if nav_next is not None else '-'} "
+                f"why={reason} inv=[{inventory}] s={survival_mode}"
+            )
+            continue
+
+        lock = robot.knowledge.get("intention_lock", 0)
+        print(
+            f"  R{robot.agent_id} {robot.robot_type:<6} pos={robot.pos} "
+            f"life={robot.energy:>3} inv=[{inventory}] intent={intent:<10} "
+            f"lock={lock:<2} action={action:<10} survive={survival_mode} "
+            f"target={target if target is not None else '-'} next={nav_next if nav_next is not None else '-'} why={reason}"
+        )
+
+
+def _append_intelligence_run_log(model, run_mode, reason):
+    """Append one concise run-summary entry to reports/intelligence_log.md."""
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        log_path = os.path.join(base_dir, "reports", "intelligence_log.md")
+
+        green_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "green")
+        yellow_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "yellow")
+        red_count = sum(1 for wl in model.waste_map.values() for waste in wl if waste.waste_type == "red")
+        in_survival = sum(1 for robot in model.robots if robot.knowledge.get("survival_mode", False))
+        alive = sum(1 for robot in model.robots if robot.energy > 0)
+
+        if model.game_over:
+            status = "success" if getattr(model, "mission_success", False) else "failure"
+        else:
+            status = "interrupted"
+
+        entry = (
+            "\n"
+            f"- **Date**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+            f"- **Change**: Auto-run summary | mode={run_mode} | reason={reason}.\n"
+            f"- **Observed**: status={status}, tick={model.tick}, disposed={model.waste_disposed}, waste G/Y/R={green_count}/{yellow_count}/{red_count}, survival_agents={in_survival}, alive={alive}/{len(model.robots)}.\n"
+            f"- **Decision**: Keep append log; tune next from this snapshot if yellow collection or handoff stalls.\n"
+        )
+
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            log_file.write(entry)
+    except Exception as log_exc:
+        print(f"Intelligence log append failed: {log_exc}")
 
 
 def main():
@@ -93,6 +168,7 @@ def main():
         game_over_sound_played = False
         run_mode = settings.get("run_mode", RUN_MODE_AUTO)
         step_budget = 0
+        run_summary_logged = False
 
         # Key mapping for human player actions
         _HUMAN_KEY_MAP = {
@@ -147,8 +223,14 @@ def main():
                         model.human_robot.pending_action = _HUMAN_KEY_MAP[event.key]
 
                     elif event.key == pygame.K_m:
+                        if not run_summary_logged:
+                            _append_intelligence_run_log(model, run_mode, reason="main_menu")
+                            run_summary_logged = True
                         go_to_menu = True
                     elif event.key == pygame.K_r:
+                        if not run_summary_logged:
+                            _append_intelligence_run_log(model, run_mode, reason="restart")
+                            run_summary_logged = True
                         model = RobotMission(
                             human_mode=human_mode,
                             human_color=human_color)
@@ -203,6 +285,7 @@ def main():
                 ticks_per_frame = max(1, config.AGENT_TICK_RATE // speed)
                 if frame_count % ticks_per_frame == 0:
                     model.step()
+                    _print_step_debug(model)
                     if run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
                         step_budget = max(0, step_budget - 1)
 
@@ -225,6 +308,10 @@ def main():
                     # Geiger counter sound based on waste level
                     sound_mgr.play_geiger(
                         model.total_waste(), config.MAX_RADIATION_THRESHOLD)
+
+                    if model.game_over and not run_summary_logged:
+                        _append_intelligence_run_log(model, run_mode, reason="game_over")
+                        run_summary_logged = True
 
             # Game over sound
             if model.game_over and not game_over_sound_played:
