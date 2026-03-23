@@ -104,8 +104,10 @@ class RobotMission:
 
         # Spawn initial green waste in z1
         for _ in range(_cfg.INITIAL_GREEN_WASTE):
-            x = random.randint(0, ZONE_1_END - 1)
-            y = random.randint(0, GRID_ROWS - 1)
+            sampled = self._sample_non_decontam_pos(0, ZONE_1_END - 1)
+            if sampled is None:
+                continue
+            x, y = sampled
             w = Waste(x, y, "green", created_at=0)
             self.waste_map.setdefault((x, y), []).append(w)
 
@@ -148,6 +150,32 @@ class RobotMission:
             return 2
         return 3
 
+    def _sample_non_decontam_pos(self, x_min, x_max):
+        """Sample a position in [x_min, x_max] x [0, GRID_ROWS-1] that is not decontamination."""
+        candidates = [
+            (x, y)
+            for x in range(x_min, x_max + 1)
+            for y in range(GRID_ROWS)
+            if (x, y) not in self.decontamination_zones
+        ]
+        if not candidates:
+            return None
+        return random.choice(candidates)
+
+    def _nearest_drop_pos_off_decontam(self, origin, allowed_zones=None):
+        """Return a valid drop position nearest to origin that is not decontamination."""
+        ox, oy = origin
+        candidates = [origin, (ox - 1, oy), (ox + 1, oy), (ox, oy - 1), (ox, oy + 1)]
+        for px, py in candidates:
+            if not (0 <= px < GRID_COLS and 0 <= py < GRID_ROWS):
+                continue
+            if (px, py) in self.decontamination_zones:
+                continue
+            if allowed_zones is not None and self._get_zone(px) not in allowed_zones:
+                continue
+            return (px, py)
+        return None
+
     # -- Communication ---------------------------------------------------------
 
     def _deliver_messages(self):
@@ -171,38 +199,67 @@ class RobotMission:
         """Return what the agent can see: contents of current and adjacent cells."""
         percepts = {}
         ax, ay = agent.x, agent.y
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                nx, ny = ax + dx, ay + dy
-                if 0 <= nx < GRID_COLS and 0 <= ny < GRID_ROWS:
-                    cell = {}
-                    # Radioactivity
-                    rad = self.radioactivity.get((nx, ny))
-                    if rad:
-                        cell["radioactivity"] = rad.level
-                        cell["zone"] = rad.zone
+        if _cfg.GLOBAL_KNOWLEDGE:
+            xs = range(GRID_COLS)
+            ys = range(GRID_ROWS)
+        else:
+            xs = range(max(0, ax - 1), min(GRID_COLS, ax + 2))
+            ys = range(max(0, ay - 1), min(GRID_ROWS, ay + 2))
 
-                    # Waste
-                    wastes = self.waste_map.get((nx, ny), [])
-                    if wastes:
-                        cell["waste"] = [w.waste_type for w in wastes]
+        for nx in xs:
+            for ny in ys:
+                cell = {}
+                # Radioactivity
+                rad = self.radioactivity.get((nx, ny))
+                if rad:
+                    cell["radioactivity"] = rad.level
+                    cell["zone"] = rad.zone
 
-                    # Disposal
-                    if (nx, ny) in self.disposal_zones:
-                        cell["disposal"] = True
+                # Waste
+                wastes = self.waste_map.get((nx, ny), [])
+                if wastes:
+                    cell["waste"] = [w.waste_type for w in wastes]
 
-                    # Decontamination
-                    if (nx, ny) in self.decontamination_zones:
-                        cell["decontamination"] = True
+                # Disposal
+                if (nx, ny) in self.disposal_zones:
+                    cell["disposal"] = True
 
-                    # Other robots
-                    others = [r for r in self.robots
-                              if r.pos == (nx, ny) and r is not agent]
-                    if others:
-                        cell["robots"] = [(r.robot_type, r.agent_id) for r in others]
+                # Decontamination
+                if (nx, ny) in self.decontamination_zones:
+                    cell["decontamination"] = True
 
-                    percepts[(nx, ny)] = cell
+                # Other robots
+                others = [r for r in self.robots if r.pos == (nx, ny) and r is not agent]
+                if others:
+                    cell["robots"] = [(r.robot_type, r.agent_id) for r in others]
+
+                percepts[(nx, ny)] = cell
         return percepts
+
+    def get_waste_counts(self):
+        """Return on-map waste counts by type."""
+        counts = {"green": 0, "yellow": 0, "red": 0}
+        for wastes in self.waste_map.values():
+            for waste in wastes:
+                if waste.waste_type in counts:
+                    counts[waste.waste_type] += 1
+        counts["total"] = counts["green"] + counts["yellow"] + counts["red"]
+        return counts
+
+    def get_waste_positions(self):
+        """Return on-map waste positions by type."""
+        positions = {"green": [], "yellow": [], "red": []}
+        seen = {"green": set(), "yellow": set(), "red": set()}
+        for pos, wastes in self.waste_map.items():
+            for waste in wastes:
+                waste_type = waste.waste_type
+                if waste_type in positions and pos not in seen[waste_type]:
+                    seen[waste_type].add(pos)
+                    positions[waste_type].append(pos)
+        positions["total"] = (
+            len(positions["green"]) + len(positions["yellow"]) + len(positions["red"])
+        )
+        return positions
 
     # -- Action execution ------------------------------------------------------
 
@@ -224,7 +281,10 @@ class RobotMission:
             if 0 <= nx < GRID_COLS and 0 <= ny < GRID_ROWS:
                 # Check zone access
                 zone = self._get_zone(nx)
-                if zone in agent.allowed_zones:
+                entering_decontam_while_loaded = (
+                    (nx, ny) in self.decontamination_zones and bool(agent.inventory)
+                )
+                if zone in agent.allowed_zones and not entering_decontam_while_loaded:
                     agent.x = nx
                     agent.y = ny
                     if dx > 0:
@@ -235,7 +295,7 @@ class RobotMission:
         elif action == ACTION_PICK_UP:
             pos = agent.pos
             wastes = self.waste_map.get(pos, [])
-            if wastes and agent.can_carry_more():
+            if pos not in self.decontamination_zones and wastes and agent.can_carry_more():
                 # Pick up the first waste of the agent's target type
                 for w in wastes:
                     if w.waste_type == agent.target_waste:
@@ -249,18 +309,20 @@ class RobotMission:
         elif action == ACTION_TRANSFORM:
             if agent.robot_type == "green":
                 count = agent.inventory.count("green")
-                if count >= GREEN_TO_YELLOW_COST:
+                while count >= GREEN_TO_YELLOW_COST:
                     for _ in range(GREEN_TO_YELLOW_COST):
                         agent.inventory.remove("green")
                     agent.inventory.append("yellow")
                     self.events.append(("transform", agent.pos, "yellow"))
+                    count -= GREEN_TO_YELLOW_COST
             elif agent.robot_type == "yellow":
                 count = agent.inventory.count("yellow")
-                if count >= YELLOW_TO_RED_COST:
+                while count >= YELLOW_TO_RED_COST:
                     for _ in range(YELLOW_TO_RED_COST):
                         agent.inventory.remove("yellow")
                     agent.inventory.append("red")
                     self.events.append(("transform", agent.pos, "red"))
+                    count -= YELLOW_TO_RED_COST
 
         elif action == ACTION_DROP:
             pos = agent.pos
@@ -272,17 +334,36 @@ class RobotMission:
                     self.score += 100
                 self.events.append(("dispose", pos, "red"))
             else:
-                # Drop transformed waste on the ground for next robot type
+                # Normal behavior: drop transformed output only.
+                # Survival behavior: allow emergency drop of all carried waste.
+                drop_all = bool(agent.knowledge.get("survival_mode", False)) or bool(
+                    agent.knowledge.get("force_drop_all", False)
+                )
+                relay_drop_yellow = bool(agent.knowledge.get("yellow_relay_drop", False))
                 to_drop = []
-                if agent.robot_type == "green":
+                if drop_all:
+                    to_drop = list(agent.inventory)
+                elif agent.robot_type == "green":
                     to_drop = [w for w in agent.inventory if w == "yellow"]
                 elif agent.robot_type == "yellow":
-                    to_drop = [w for w in agent.inventory if w == "red"]
+                    if relay_drop_yellow:
+                        to_drop = [w for w in agent.inventory if w in ("yellow", "red")]
+                    else:
+                        to_drop = [w for w in agent.inventory if w == "red"]
+
+                drop_pos = self._nearest_drop_pos_off_decontam(pos, allowed_zones=agent.allowed_zones)
+                if drop_pos is None:
+                    return self.get_percepts(agent)
 
                 for wtype in to_drop:
                     agent.inventory.remove(wtype)
-                    waste = Waste(pos[0], pos[1], wtype, created_at=self.tick)
-                    self.waste_map.setdefault(pos, []).append(waste)
+                    waste = Waste(drop_pos[0], drop_pos[1], wtype, created_at=self.tick)
+                    self.waste_map.setdefault(drop_pos, []).append(waste)
+
+                if "force_drop_all" in agent.knowledge:
+                    agent.knowledge["force_drop_all"] = False
+                if "yellow_relay_drop" in agent.knowledge:
+                    agent.knowledge["yellow_relay_drop"] = False
 
         return self.get_percepts(agent)
 
@@ -309,8 +390,10 @@ class RobotMission:
             count += bonus
 
             for _ in range(count):
-                x = random.randint(0, ZONE_1_END - 1)
-                y = random.randint(0, GRID_ROWS - 1)
+                sampled = self._sample_non_decontam_pos(0, ZONE_1_END - 1)
+                if sampled is None:
+                    continue
+                x, y = sampled
                 w = Waste(x, y, "green", created_at=self.tick)
                 self.waste_map.setdefault((x, y), []).append(w)
 
@@ -319,8 +402,10 @@ class RobotMission:
             if self.tick % _cfg.RADIATION_SPAWN_INTERVAL == 0:
                 z2_count = max(1, int(RADIATION_SPAWN_COUNT * 0.5))
                 for _ in range(z2_count):
-                    x = random.randint(ZONE_1_END, ZONE_2_END - 1)
-                    y = random.randint(0, GRID_ROWS - 1)
+                    sampled = self._sample_non_decontam_pos(ZONE_1_END, ZONE_2_END - 1)
+                    if sampled is None:
+                        continue
+                    x, y = sampled
                     w = Waste(x, y, "yellow", created_at=self.tick)
                     self.waste_map.setdefault((x, y), []).append(w)
 

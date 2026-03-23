@@ -31,9 +31,13 @@ def _wave_to_sound(wave, sample_rate=22050):
     """Convert a float32 mono wave array to a pygame Sound object."""
     # Convert to 16-bit signed integer
     wave_int = np.clip(wave * 32767, -32767, 32767).astype(np.int16)
-    # Make stereo by duplicating the channel
-    stereo = np.column_stack((wave_int, wave_int))
-    sound = pygame.sndarray.make_sound(stereo)
+    mixer_init = pygame.mixer.get_init()
+    channels = mixer_init[2] if mixer_init else 2
+    if channels <= 1:
+        sound_array = wave_int
+    else:
+        sound_array = np.repeat(wave_int[:, None], channels, axis=1)
+    sound = pygame.sndarray.make_sound(sound_array)
     return sound
 
 
