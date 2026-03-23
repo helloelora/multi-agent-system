@@ -33,7 +33,7 @@ This project models a multi-agent radioactive waste mission in a hostile environ
 - Decontamination-aware constraints (loaded robots avoid decontamination entry; emergency drop in survival mode).
   - Justification: preserves viability and avoids dead-end states.
 
-- Lightweight communication protocol (`waste_found`, `need_pickup`, `area_clear`, `load_status`).
+- Lightweight communication protocol (`waste_found`, `need_pickup`, `load_status`).
   - Justification: enables practical coordination without heavy negotiation overhead.
 
 - Asynchronous mailbox with one-tick delay and communication metrics (`messages_sent`).

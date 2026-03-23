@@ -26,10 +26,6 @@ All messages are currently modeled as `inform`-style signals sent through the in
   - meaning: reports current downstream availability and workload state.
   - typical fields: `{ role, target_waste, available, is_active, last_action, pos }`.
 
-- `area_clear`
-  - meaning: announces that no waste is currently perceived in the sender local neighborhood.
-  - typical fields: `{ pos, sender_role }`.
-
 ## Delivery model
 
 Communication is asynchronous with one-tick delayed delivery:

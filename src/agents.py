@@ -209,10 +209,6 @@ class RobotAgent:
         if last == ACTION_DROP and self.output_waste:
             self.send_message(model, "need_pickup",
                               {"pos": pos, "waste_type": self.output_waste})
-        # If area around us has no waste, announce clear
-        has_waste = any(contents.get("waste") for contents in percepts.values())
-        if not has_waste:
-            self.send_message(model, "area_clear", {"pos": pos})
 
         # AUML-like INFORM: share local task load to help upstream robots decide to rest.
         if self.robot_type in ("yellow", "red"):

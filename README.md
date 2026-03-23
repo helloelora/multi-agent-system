@@ -38,7 +38,6 @@ The implementation combines:
 Communication messages currently include:
 - `waste_found`,
 - `need_pickup`,
-- `area_clear`,
 - `load_status`.
 
 The protocol details are documented in `reports/auml_protocol.md`.
