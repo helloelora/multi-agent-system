@@ -383,15 +383,6 @@ class Renderer:
 
         y += 16
 
-        # Live heatmaps (debug): per-robot visit frequency
-        if getattr(_cfg, "DEBUG_HEATMAPS_ENABLED", True):
-            y = self._draw_robot_heatmaps(model, sb_x, y, sb_w)
-            y += 16
-
-        if getattr(_cfg, "DEBUG_STEP_LOG_ENABLED", False):
-            y = self._draw_decision_debug_panel(model, sb_x, y, sb_w)
-            y += 12
-
         # Agent roster
         self._draw_text("AGENTS", sb_x, y, self.font_large, TEXT_COLOR)
         y += 24
@@ -424,89 +415,6 @@ class Renderer:
 
             self._draw_text(info, sb_x + 12, y, self.font, color)
             y += 16
-
-    def _draw_robot_heatmaps(self, model, x, y, w):
-        self._draw_text("HEATMAPS (VISITS)", x, y, self.font, (140, 140, 160))
-        y += 16
-
-        robots = sorted(model.robots, key=lambda r: r.agent_id)[:3]
-        if not robots:
-            return y
-
-        gap = 6
-        cell_w = (w - gap * 2) // 3
-        map_h = max(28, int(cell_w * GRID_ROWS / GRID_COLS))
-
-        for idx, robot in enumerate(robots):
-            px = x + idx * (cell_w + gap)
-            self._draw_single_robot_heatmap(robot, px, y, cell_w, map_h)
-
-        return y + map_h + 18
-
-    def _draw_single_robot_heatmap(self, robot, x, y, w, h):
-        role_color = {
-            "green": COLOR_GREEN_ROBOT,
-            "yellow": COLOR_YELLOW_ROBOT,
-            "red": COLOR_RED_ROBOT,
-        }.get(robot.robot_type, (180, 180, 180))
-
-        title = f"{robot.robot_type[0].upper()}{robot.agent_id}"
-        self._draw_text(title, x, y - 14, self.font, role_color)
-
-        pygame.draw.rect(self.screen, (18, 18, 28), (x, y, w, h), border_radius=3)
-        pygame.draw.rect(self.screen, (45, 45, 58), (x, y, w, h), 1, border_radius=3)
-
-        visited = robot.knowledge.get("visited_count", {})
-        if not visited:
-            return
-
-        max_visit = max(1, max(visited.values()))
-        px_w = max(1, w // GRID_COLS)
-        px_h = max(1, h // GRID_ROWS)
-
-        for gx in range(GRID_COLS):
-            for gy in range(GRID_ROWS):
-                count = visited.get((gx, gy), 0)
-                if count <= 0:
-                    continue
-                intensity = min(1.0, count / max_visit)
-                color = (
-                    int(role_color[0] * intensity),
-                    int(role_color[1] * intensity),
-                    int(role_color[2] * intensity),
-                )
-                rx = x + gx * px_w
-                ry = y + gy * px_h
-                pygame.draw.rect(self.screen, color, (rx, ry, px_w, px_h))
-
-    def _draw_decision_debug_panel(self, model, x, y, w):
-        self._draw_text("DECISIONS", x, y, self.font, (140, 140, 160))
-        y += 16
-
-        panel_h = min(96, WINDOW_HEIGHT - y - 40)
-        if panel_h < 24:
-            return y
-
-        pygame.draw.rect(self.screen, (18, 18, 28), (x, y, w, panel_h), border_radius=4)
-        pygame.draw.rect(self.screen, (45, 45, 58), (x, y, w, panel_h), 1, border_radius=4)
-
-        line_y = y + 4
-        for robot in sorted(model.robots, key=lambda r: r.agent_id):
-            if line_y > y + panel_h - 14:
-                break
-            target = robot.knowledge.get("decision_target") or robot.knowledge.get("intention_target")
-            reason = robot.knowledge.get("decision_reason", "")
-            action = robot.knowledge.get("last_action", "-")
-            text = f"R{robot.agent_id} a={action} t={target if target is not None else '-'} why={reason if reason else '-'}"
-            color = {
-                "green": COLOR_GREEN_ROBOT,
-                "yellow": COLOR_YELLOW_ROBOT,
-                "red": COLOR_RED_ROBOT,
-            }.get(robot.robot_type, TEXT_COLOR)
-            self._draw_text(text, x + 6, line_y, self.font, color)
-            line_y += 14
-
-        return y + panel_h
 
     def _draw_mini_chart(self, model, x, y, w, h, title, series, threshold=None):
         self._draw_text(title, x, y, self.font, (140, 140, 160))

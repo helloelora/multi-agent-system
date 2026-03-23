@@ -1,8 +1,8 @@
-# Lightweight auml protocol for step 2
+# Lightweight AUML protocol for step 2
 
 ## Objective
 
-This protocol adds explicit information sharing between robot roles to improve handoff quality and reduce idle or conflicting movements.
+This protocol adds explicit information sharing between robot roles to improve handoff quality, reduce unsafe decisions, and stabilize target commitment.
 
 ## Agent roles
 
@@ -12,19 +12,23 @@ This protocol adds explicit information sharing between robot roles to improve h
 
 ## Message set
 
-All messages are currently modeled as `inform`-style signals sent through the internal mailbox.
+All messages are modeled as lightweight `inform`-style signals sent through the internal mailbox.
 
 - `waste_found`
   - meaning: announces detected waste of a given type and position.
-  - typical fields: `{ kind, pos, sender_role }`.
+  - delivery: sent to the role that can process the waste type.
+  - fields: `{ pos, waste_type, count }`.
 
 - `need_pickup`
-  - meaning: announces that transformed waste is now available for the downstream role.
-  - typical fields: `{ kind, pos, sender_role }`.
+  - meaning: announces that dropped waste is available for the downstream role.
+  - delivery: sent to the role that can process the dropped type.
+  - fields: `{ pos, waste_type }`.
+  - guard: emitted only for actual dropped waste types computed from inventory diff (prevents false handoff alerts).
 
 - `load_status`
   - meaning: reports current downstream availability and workload state.
-  - typical fields: `{ role, target_waste, available, is_active, last_action, pos }`.
+  - fields: `{ role, target_waste, available, is_active, last_action, pos }`.
+  - `available` uses locally known quantities (`count`) plus carried target items.
 
 ## Delivery model
 
@@ -33,14 +37,28 @@ Communication is asynchronous with one-tick delayed delivery:
 - each agent processes its mailbox during the next deliberation cycle,
 - no direct synchronous negotiation is used.
 
-## Implemented coordination pattern
+## Implemented coordination patterns
 
-One active rule is a recovery-aware upstream pause:
-- when a green robot receives a yellow `load_status` indicating sufficient downstream availability,
-- and green is not carrying waste,
-- green can prioritize recharge in decontamination before resuming collection.
+Current coordination patterns include:
 
-This rule reduces unsafe pickups during low-energy phases and improves pipeline continuity.
+- Recovery-aware upstream pause:
+  - when green receives yellow `load_status` indicating sufficient downstream availability,
+  - and green is not carrying waste,
+  - green can prioritize recharge before resuming collection.
+
+- Persistent message focus:
+  - robots keep a `message_focus_target` across ticks,
+  - switching occurs only when a new message-derived target is strictly Euclidean-closer.
+
+- Return retarget caching:
+  - during survival/recharge return, green and yellow can memorize nearby relevant waste,
+  - after recovery they may prioritize this cached retarget before broad exploration.
+
+- Quantity-aware yellow pair logic:
+  - yellow wait-for-pair reasoning uses quantity-aware known counts,
+  - stacked yellow waste on the same cell is treated as a valid pair opportunity.
+
+These rules reduce unsafe pickups, lower oscillations, and improve handoff continuity.
 
 ## Scope and limits
 

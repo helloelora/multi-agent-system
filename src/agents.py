@@ -12,11 +12,11 @@ Includes energy system and inter-agent communication.
 
 import random
 import heapq
+from collections import Counter
 from src.config import (
     ZONE_1_END, ZONE_2_END, GRID_COLS, GRID_ROWS,
     AGENT_MAX_CARRY, GREEN_TO_YELLOW_COST, YELLOW_TO_RED_COST,
     ENERGY_ENABLED, AGENT_MAX_ENERGY,
-    GLOBAL_KNOWLEDGE,
     ENERGY_COST_MOVE, ENERGY_COST_PICKUP, ENERGY_COST_TRANSFORM,
     ENERGY_COST_DROP,
     COMMUNICATION_ENABLED,
@@ -97,7 +97,7 @@ class RobotAgent:
             "percepts": {},
             "inventory": [],
             "step_count": 0,
-            "known_waste": {},      # (x,y) -> {"type": str, "ttl": int}
+            "known_waste": {},      # (x,y) -> {"type": str, "ttl": int, "count": int}
             "known_decontamination": set(),
             "last_action": None,
             "facing": "right",
@@ -143,8 +143,8 @@ class RobotAgent:
         cost = _ACTION_ENERGY_COST.get(action, 0)
         return self.energy >= cost
 
-    def send_message(self, model, msg_type, content):
-        """Post a message to the model's message board for delivery next tick."""
+    def send_message(self, model, msg_type, content, to_role=None, to_agent_id=None):
+        """Queue a directed message for next-tick delivery."""
         if not COMMUNICATION_ENABLED:
             return
         msg = {
@@ -152,8 +152,20 @@ class RobotAgent:
             "from_type": self.robot_type,
             "type": msg_type,
             "content": content,
+            "to_role": to_role,
+            "to_agent_id": to_agent_id,
         }
-        model.message_board.append(msg)
+        model.post_message(msg)
+
+    @staticmethod
+    def _recipient_role_for_waste(waste_type):
+        if waste_type == "yellow":
+            return "yellow"
+        if waste_type == "red":
+            return "red"
+        if waste_type == "green":
+            return "green"
+        return None
 
     # -- Agent loop ------------------------------------------------------------
 
@@ -161,11 +173,8 @@ class RobotAgent:
         # Deliver messages from mailbox into knowledge
         self.knowledge["messages"] = list(self.mailbox)
         self.mailbox.clear()
-        self.knowledge["global_waste_counts"] = model.get_waste_counts()
-        if GLOBAL_KNOWLEDGE:
-            self.knowledge["global_waste_positions"] = model.get_waste_positions()
-        else:
-            self.knowledge["global_waste_positions"] = {"green": [], "yellow": [], "red": [], "total": 0}
+        if "initial_waste_counts" not in self.knowledge:
+            self.knowledge["initial_waste_counts"] = dict(model.get_waste_counts())
 
         percepts = model.get_percepts(self)
         self._update_knowledge(percepts)
@@ -175,7 +184,18 @@ class RobotAgent:
         if ENERGY_ENABLED and not self.has_energy_for(action):
             action = ACTION_IDLE
 
+        inventory_before_action = list(self.inventory)
         new_percepts = model.do(self, action)
+        dropped_waste_types = []
+        if (
+            action == ACTION_DROP
+            and not (self.robot_type == "red" and self.pos in model.disposal_zones)
+        ):
+            before_counts = Counter(inventory_before_action)
+            after_counts = Counter(self.inventory)
+            for wtype, count_before in before_counts.items():
+                if count_before > after_counts.get(wtype, 0):
+                    dropped_waste_types.append(wtype)
 
         # Energy bookkeeping
         if ENERGY_ENABLED:
@@ -190,30 +210,39 @@ class RobotAgent:
         self.anim_frame += 1
 
         # Communication: broadcast useful info after acting
-        self._broadcast(model, percepts)
+        self._broadcast(model, percepts, dropped_waste_types=dropped_waste_types)
 
-    def _broadcast(self, model, percepts):
+    def _broadcast(self, model, percepts, dropped_waste_types=None):
         """Send messages about the environment after taking action."""
         if not COMMUNICATION_ENABLED:
             return
         pos = self.pos
         for p, contents in percepts.items():
             if contents.get("waste"):
-                for wtype in contents["waste"]:
+                waste_counts = Counter(contents["waste"])
+                for wtype, wcount in waste_counts.items():
                     if wtype != self.target_waste:
-                        # Found waste we can't handle — broadcast it
+                        # Found waste we cannot process: notify the relevant role only.
+                        recipient_role = self._recipient_role_for_waste(wtype)
                         self.send_message(model, "waste_found",
-                                          {"pos": p, "waste_type": wtype})
-        # If we just dropped transformed waste, announce it
-        last = self.knowledge.get("last_action")
-        if last == ACTION_DROP and self.output_waste:
-            self.send_message(model, "need_pickup",
-                              {"pos": pos, "waste_type": self.output_waste})
+                                          {"pos": p, "waste_type": wtype, "count": int(wcount)},
+                                          to_role=recipient_role)
+        # If we just dropped waste, announce only actual dropped types that this
+        # role cannot process itself (prevents false yellow->red handoffs).
+        if dropped_waste_types:
+            for wtype in sorted(set(dropped_waste_types)):
+                if wtype == self.target_waste:
+                    continue
+                recipient_role = self._recipient_role_for_waste(wtype)
+                self.send_message(model, "need_pickup",
+                                  {"pos": pos, "waste_type": wtype},
+                                  to_role=recipient_role)
 
         # AUML-like INFORM: share local task load to help upstream robots decide to rest.
         if self.robot_type in ("yellow", "red"):
             known_target = sum(
-                1 for info in self.knowledge.get("known_waste", {}).values()
+                max(1, int(info.get("count", 1)))
+                for info in self.knowledge.get("known_waste", {}).values()
                 if info.get("type") == self.target_waste
             )
             carrying_target = self.inventory.count(self.target_waste)
@@ -231,6 +260,7 @@ class RobotAgent:
                     "last_action": last_action,
                     "pos": pos,
                 },
+                to_role=("green" if self.robot_type == "yellow" else "yellow"),
             )
 
     def _update_knowledge(self, percepts):
@@ -284,10 +314,12 @@ class RobotAgent:
         # Remember waste locations from percepts
         for pos, contents in percepts.items():
             if contents.get("waste"):
-                for waste_type in contents["waste"]:
+                waste_counts = Counter(contents["waste"])
+                for waste_type, waste_count in waste_counts.items():
                     self.knowledge["known_waste"][pos] = {
                         "type": waste_type,
                         "ttl": KNOWLEDGE_WASTE_TTL,
+                        "count": int(waste_count),
                     }
             else:
                 self.knowledge["known_waste"].pop(pos, None)
@@ -309,17 +341,63 @@ class RobotAgent:
         Returns a target position or None."""
         if not COMMUNICATION_ENABLED:
             return None
+        pos_self = knowledge.get("pos", self.pos)
+        known = knowledge.setdefault("known_waste", {})
+        current_focus = knowledge.get("message_focus_target")
+        if isinstance(current_focus, (list, tuple)) and len(current_focus) == 2:
+            current_focus = (int(current_focus[0]), int(current_focus[1]))
+        else:
+            current_focus = None
+
+        if current_focus is not None:
+            focus_info = known.get(current_focus)
+            if (focus_info is None
+                    or focus_info.get("type") != self.target_waste
+                    or not self._can_move_to(current_focus[0], current_focus[1], self.allowed_zones)):
+                current_focus = None
+
+        matched_targets = []
         for msg in knowledge.get("messages", []):
             if msg["type"] in ("waste_found", "need_pickup"):
                 if msg["content"].get("waste_type") == self.target_waste:
-                    pos = msg["content"]["pos"]
-                    known = knowledge.setdefault("known_waste", {})
+                    pos = msg["content"].get("pos")
+                    if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+                        continue
+                    pos = (int(pos[0]), int(pos[1]))
+                    existing_info = known.get(pos, {})
+                    existing_count = 0
+                    if existing_info.get("type") == self.target_waste:
+                        existing_count = max(1, int(existing_info.get("count", 1)))
+                    raw_msg_count = msg["content"].get("count", 1)
+                    try:
+                        msg_count = max(1, int(raw_msg_count))
+                    except (TypeError, ValueError):
+                        msg_count = 1
                     known[pos] = {
                         "type": self.target_waste,
                         "ttl": KNOWLEDGE_WASTE_TTL,
+                        "count": max(existing_count, msg_count),
                     }
-                    return pos
-        return None
+                    if self._can_move_to(pos[0], pos[1], self.allowed_zones):
+                        matched_targets.append(pos)
+
+        if not matched_targets:
+            if current_focus is not None:
+                knowledge["message_focus_target"] = current_focus
+                return current_focus
+            knowledge["message_focus_target"] = None
+            return None
+
+        best_new = min(matched_targets, key=lambda p: self._euclidean(pos_self, p))
+        if current_focus is None:
+            chosen = best_new
+        else:
+            d_current = self._euclidean(pos_self, current_focus)
+            d_new = self._euclidean(pos_self, best_new)
+            chosen = best_new if d_new < d_current else current_focus
+
+        knowledge["message_focus_target"] = chosen
+        return chosen
 
     @staticmethod
     def _get_zone(col):
@@ -490,6 +568,12 @@ class RobotAgent:
     @staticmethod
     def _manhattan(a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    @staticmethod
+    def _euclidean(a, b):
+        dx = a[0] - b[0]
+        dy = a[1] - b[1]
+        return (dx * dx + dy * dy) ** 0.5
 
     def _nearest_known_waste(self, knowledge, waste_type):
         pos = knowledge["pos"]
@@ -708,17 +792,21 @@ class RobotAgent:
         reserve_steps = steps_to_primary + steps_primary_to_decon
         return self._needs_survival_mode_dynamic(knowledge, reserve_steps=reserve_steps, role_prefix=role_prefix)
 
-    def _explore_with_target(self, knowledge, min_col=0, max_col=None):
+    def _explore_with_target(self, knowledge, min_col=0, max_col=None, min_row=0, max_row=None):
         """Explore with memory: prefer less-visited reachable cells, then A* to waypoint."""
         pos = knowledge["pos"]
         if max_col is None:
             max_col = GRID_COLS - 1
+        if max_row is None:
+            max_row = GRID_ROWS - 1
 
         def _valid_target(target):
             if not target:
                 return False
             tx, ty = target
             if tx < min_col or tx > max_col:
+                return False
+            if ty < min_row or ty > max_row:
                 return False
             return self._can_move_to(tx, ty, self.allowed_zones)
 
@@ -731,7 +819,7 @@ class RobotAgent:
             visited = knowledge.get("visited_count", {})
             candidates = []
             for tx in range(min_col, max_col + 1):
-                for ty in range(0, GRID_ROWS):
+                for ty in range(min_row, max_row + 1):
                     if self._can_move_to(tx, ty, self.allowed_zones):
                         dist_score = self._manhattan(pos, (tx, ty))
                         if dist_score == 0:
@@ -870,6 +958,78 @@ class GreenAgent(RobotAgent):
         margin = projected_energy - (HEALTH_LOW_THRESHOLD + dynamic_buffer)
         return margin >= 0, margin
 
+    def _green_explore_row_bounds(self, knowledge):
+        mid_row = GRID_ROWS // 2
+        top_exhausted = int(knowledge.get("green_top_exhausted_ttl", 0)) > 0
+        bottom_exhausted = int(knowledge.get("green_bottom_exhausted_ttl", 0)) > 0
+        if top_exhausted and not bottom_exhausted:
+            return mid_row + 1, GRID_ROWS - 1
+        if bottom_exhausted and not top_exhausted:
+            return 0, mid_row
+        return 0, GRID_ROWS - 1
+
+    def _green_explore_action(self, knowledge):
+        min_row, max_row = self._green_explore_row_bounds(knowledge)
+        return self._explore_with_target(
+            knowledge,
+            min_col=0,
+            max_col=ZONE_1_END - 1,
+            min_row=min_row,
+            max_row=max_row,
+        )
+
+    def _update_green_empty_zone_memory(self, knowledge, percepts):
+        mid_row = GRID_ROWS // 2
+        top_ttl = max(0, int(knowledge.get("green_top_exhausted_ttl", 0)) - 1)
+        bottom_ttl = max(0, int(knowledge.get("green_bottom_exhausted_ttl", 0)) - 1)
+        top_no_ticks = int(knowledge.get("green_top_no_waste_ticks", 0))
+        bottom_no_ticks = int(knowledge.get("green_bottom_no_waste_ticks", 0))
+
+        seen_green_positions = []
+        for seen_pos, contents in percepts.items():
+            if "green" in contents.get("waste", []):
+                if self._can_move_to(seen_pos[0], seen_pos[1], self.allowed_zones):
+                    seen_green_positions.append(seen_pos)
+
+        seen_top = any(point[1] <= mid_row for point in seen_green_positions)
+        seen_bottom = any(point[1] > mid_row for point in seen_green_positions)
+
+        known_green_points = [
+            point for point, info in knowledge.get("known_waste", {}).items()
+            if info.get("type") == "green" and self._can_move_to(point[0], point[1], self.allowed_zones)
+        ]
+        known_top = any(point[1] <= mid_row for point in known_green_points)
+        known_bottom = any(point[1] > mid_row for point in known_green_points)
+
+        if seen_top or known_top:
+            top_no_ticks = 0
+            top_ttl = 0
+        if seen_bottom or known_bottom:
+            bottom_no_ticks = 0
+            bottom_ttl = 0
+
+        pos = knowledge.get("pos", self.pos)
+        current_is_top = pos[1] <= mid_row
+        if not knowledge.get("inventory") and not seen_green_positions:
+            if current_is_top and not known_top:
+                top_no_ticks += 1
+            if (not current_is_top) and not known_bottom:
+                bottom_no_ticks += 1
+
+        no_waste_threshold = 12
+        exhausted_ttl = 48
+        if top_no_ticks >= no_waste_threshold and not known_top:
+            top_ttl = max(top_ttl, exhausted_ttl)
+            top_no_ticks = 0
+        if bottom_no_ticks >= no_waste_threshold and not known_bottom:
+            bottom_ttl = max(bottom_ttl, exhausted_ttl)
+            bottom_no_ticks = 0
+
+        knowledge["green_top_exhausted_ttl"] = top_ttl
+        knowledge["green_bottom_exhausted_ttl"] = bottom_ttl
+        knowledge["green_top_no_waste_ticks"] = top_no_ticks
+        knowledge["green_bottom_no_waste_ticks"] = bottom_no_ticks
+
     def _forage_action(self, knowledge):
         """Fast local forage in z1: prefer nearby, less-visited cells."""
         pos = knowledge["pos"]
@@ -886,9 +1046,10 @@ class GreenAgent(RobotAgent):
                 return self._navigate_to_target(knowledge, current_target)
             knowledge["green_forage_target"] = None
 
+        min_row, max_row = self._green_explore_row_bounds(knowledge)
         candidates = []
         for tx in range(0, ZONE_1_END):
-            for ty in range(0, GRID_ROWS):
+            for ty in range(min_row, max_row + 1):
                 if not self._can_move_to(tx, ty, self.allowed_zones):
                     continue
                 dist = self._manhattan(pos, (tx, ty))
@@ -902,7 +1063,7 @@ class GreenAgent(RobotAgent):
                 candidates.append((score, dist, (tx, ty)))
 
         if not candidates:
-            return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_1_END - 1)
+            return self._green_explore_action(knowledge)
 
         candidates.sort(key=lambda item: item[0], reverse=True)
         best_score = candidates[0][0]
@@ -924,16 +1085,6 @@ class GreenAgent(RobotAgent):
         border_target = (ZONE_1_END - 1, pos[1])
         msg_target = self._check_messages_for_target(knowledge)
         nearest_green = self._nearest_known_waste(knowledge, "green")
-        global_green_positions = []
-        for point in knowledge.get("global_waste_positions", {}).get("green", []):
-            point = tuple(point)
-            if self._can_move_to(point[0], point[1], self.allowed_zones):
-                global_green_positions.append(point)
-                if point not in knowledge.get("known_waste", {}):
-                    knowledge.setdefault("known_waste", {})[point] = {
-                        "type": "green",
-                        "ttl": KNOWLEDGE_WASTE_TTL,
-                    }
         green_unsafe_avoid_pos = knowledge.get("green_unsafe_avoid_pos")
         green_unsafe_avoid_ttl = int(knowledge.get("green_unsafe_avoid_ttl", 0))
         if green_unsafe_avoid_ttl > 0:
@@ -967,27 +1118,17 @@ class GreenAgent(RobotAgent):
                 points.append(point)
             return points
 
-        global_green_positions_filtered = [
-            point for point in global_green_positions
-            if not (
-                green_unsafe_avoid_ttl > 0
-                and green_unsafe_avoid_pos is not None
-                and point == green_unsafe_avoid_pos
-            )
-        ]
-
-        if nearest_green is None and global_green_positions_filtered:
-            nearest_green = min(global_green_positions_filtered, key=lambda point: self._manhattan(pos, point))
+        known_green_points = _green_known_points_excluding_unsafe()
+        if nearest_green is None and known_green_points:
+            nearest_green = min(known_green_points, key=lambda point: self._manhattan(pos, point))
 
         if (green_unsafe_avoid_ttl > 0
                 and green_unsafe_avoid_pos is not None
                 and nearest_green == green_unsafe_avoid_pos):
             alt_points = _green_known_points_excluding_unsafe()
             nearest_green = min(alt_points, key=lambda point: self._manhattan(pos, point)) if alt_points else None
-        known_green_count = max(
-            sum(1 for p in _green_known_points_excluding_unsafe()),
-            len(global_green_positions_filtered),
-        )
+        known_green_count = len(known_green_points)
+        self._update_green_empty_zone_memory(knowledge, percepts)
         has_green_here = pos in percepts and "green" in percepts[pos].get("waste", [])
         near_survival = energy <= (HEALTH_LOW_THRESHOLD + GREEN_PICKUP_RISK_MARGIN)
         carrying_partial = 0 < green_count < self.transform_cost
@@ -996,10 +1137,26 @@ class GreenAgent(RobotAgent):
         knowledge["green_can_deliver_safe"] = bool(can_deliver_safe)
 
         decon_target = ((0 + (ZONE_1_END - 1)) // 2, GRID_ROWS // 2)
+        return_retarget = knowledge.get("green_return_retarget")
+        if isinstance(return_retarget, (list, tuple)) and len(return_retarget) == 2:
+            return_retarget = (int(return_retarget[0]), int(return_retarget[1]))
+        else:
+            return_retarget = None
+
+        if return_retarget is not None:
+            retarget_info = knowledge.get("known_waste", {}).get(return_retarget)
+            if (retarget_info is None
+                    or retarget_info.get("type") != "green"
+                    or not self._can_move_to(return_retarget[0], return_retarget[1], self.allowed_zones)):
+                return_retarget = None
+
+        knowledge["green_return_retarget"] = return_retarget
         if "yellow" in inv:
             primary_target = border_target
         elif green_count >= self.transform_cost:
             primary_target = pos
+        elif return_retarget is not None:
+            primary_target = return_retarget
         elif msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
             primary_target = msg_target
         elif nearest_green:
@@ -1013,6 +1170,29 @@ class GreenAgent(RobotAgent):
             decon_target=decon_target,
             role_prefix="green",
         )
+
+        # If forced to return for recharge while empty, memorize any nearby green
+        # and keep the one closest to decontamination as next target after recovery.
+        if in_survival and "yellow" not in inv and green_count == 0:
+            nearby_green_candidates = []
+            for seen_pos, contents in percepts.items():
+                if "green" in contents.get("waste", []):
+                    if self._can_move_to(seen_pos[0], seen_pos[1], self.allowed_zones):
+                        nearby_green_candidates.append(seen_pos)
+                        knowledge.setdefault("known_waste", {})[seen_pos] = {
+                            "type": "green",
+                            "ttl": KNOWLEDGE_WASTE_TTL,
+                        }
+            if nearby_green_candidates:
+                best_return_retarget = min(
+                    nearby_green_candidates,
+                    key=lambda point: self._manhattan(point, decon_target),
+                )
+                knowledge["green_return_retarget"] = best_return_retarget
+
+        # Once carrying again, clear return-retarget memory.
+        if "yellow" in inv or green_count > 0:
+            knowledge["green_return_retarget"] = None
 
         dist_to_border = self._manhattan(pos, border_target)
         dist_to_decon = self._manhattan(pos, decon_target)
@@ -1036,8 +1216,20 @@ class GreenAgent(RobotAgent):
             green_no_repick_ttl > 0
             and green_no_repick_pos is not None
             and tuple(green_no_repick_pos) == pos
-            and energy < dynamic_recharge_exit
         )
+
+        # During recent-drop cooldown, prefer staying on recharge zone instead of
+        # local ping-pong around the dropped cell.
+        if (not in_survival
+                and "yellow" not in inv
+                and green_count == 0
+                and green_no_repick_ttl > 0
+                and green_no_repick_pos is not None):
+            if on_decon:
+                self._set_decision_debug(knowledge, "hold_decon_recent_drop_guard", target=decon_target)
+                return ACTION_IDLE
+            self._set_decision_debug(knowledge, "move_decon_recent_drop_guard", target=decon_target)
+            return self._decontamination_action(knowledge)
 
         inv_after_yellow_drop = [w for w in inv if w != "yellow"]
         carry_loss_after_drop = self._carry_loss_for_inventory(inv_after_yellow_drop)
@@ -1105,15 +1297,24 @@ class GreenAgent(RobotAgent):
             for yellow_pos in yellow_waiting_positions
         )
         knowledge["green_yellow_waiting_near"] = bool(downstream_yellow_waiting_near)
-        global_yellow_total = int(knowledge.get("global_waste_counts", {}).get("yellow", 0))
+        observed_yellow_total = max(
+            (
+                int(msg.get("content", {}).get("available", 0))
+                for msg in knowledge.get("messages", [])
+                if msg.get("type") == "load_status"
+                and msg.get("content", {}).get("role") == "yellow"
+            ),
+            default=0,
+        )
+        knowledge["green_observed_yellow_total"] = int(observed_yellow_total)
 
-        if global_yellow_total <= 1:
+        if observed_yellow_total <= 1:
             knowledge["green_busy_hold_ticks"] = 0
 
         if (not in_survival
                 and not inv
                 and downstream_yellow_busy
-                and global_yellow_total >= 2
+                and observed_yellow_total >= 2
                 and known_green_count == 0
                 and on_decon
                 and energy >= (AGENT_MAX_ENERGY - 2)):
@@ -1127,8 +1328,7 @@ class GreenAgent(RobotAgent):
             return ACTION_IDLE
         knowledge["green_busy_hold_ticks"] = 0
 
-        if (not GLOBAL_KNOWLEDGE
-                and not in_survival
+        if (not in_survival
                 and not inv
                 and not has_green_here
                 and msg_target is None
@@ -1288,16 +1488,16 @@ class GreenAgent(RobotAgent):
                 recover_action = self._decontamination_action(knowledge)
                 if recover_action == ACTION_DROP:
                     knowledge["green_no_repick_pos"] = pos
-                    knowledge["green_no_repick_ttl"] = max(int(knowledge.get("green_no_repick_ttl", 0)), 10)
+                    knowledge["green_no_repick_ttl"] = max(int(knowledge.get("green_no_repick_ttl", 0)), 18)
                     knowledge["green_unsafe_avoid_pos"] = pos
-                    knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 12)
+                    knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 18)
                 return recover_action
 
             if self.has_energy_for(ACTION_DROP):
                 knowledge["green_no_repick_pos"] = pos
-                knowledge["green_no_repick_ttl"] = 10 if dist_to_decon >= 8 else 14
+                knowledge["green_no_repick_ttl"] = 14 if dist_to_decon >= 8 else 18
                 knowledge["green_unsafe_avoid_pos"] = pos
-                knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 14)
+                knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 18)
                 self._set_decision_debug(knowledge, "survival_drop_green_buffer")
                 return ACTION_DROP
 
@@ -1316,7 +1516,8 @@ class GreenAgent(RobotAgent):
             and not green_pickup_plan_safe):
             if (green_count == 0
                     and self.has_energy_for(ACTION_PICK_UP)
-                    and green_pickup_relay_viable):
+                    and green_pickup_relay_viable
+                    and downstream_yellow_waiting_near):
                 knowledge["green_relay_mode"] = True
                 self._set_decision_debug(knowledge, "pickup_for_relay_unsafe_green", target=decon_target)
                 return ACTION_PICK_UP
@@ -1326,8 +1527,9 @@ class GreenAgent(RobotAgent):
                 knowledge["green_relay_mode"] = False
                 self._set_decision_debug(knowledge, "pickup_for_transform_viable", target=pos)
                 return ACTION_PICK_UP
-            knowledge["green_unsafe_avoid_pos"] = pos
-            knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 10)
+            unsafe_target = nearest_green if nearest_green is not None else pos
+            knowledge["green_unsafe_avoid_pos"] = unsafe_target
+            knowledge["green_unsafe_avoid_ttl"] = max(int(knowledge.get("green_unsafe_avoid_ttl", 0)), 24)
             self._set_decision_debug(knowledge, "defer_pickup_unsafe_green_plan", target=decon_target)
             return self._decontamination_action(knowledge)
 
@@ -1406,15 +1608,13 @@ class GreenAgent(RobotAgent):
             if target == pos:
                 knowledge.get("known_waste", {}).pop(target, None)
                 knowledge["intention_lock"] = 0
-                return self._forage_action(knowledge) if carrying_partial else self._explore_with_target(
-                    knowledge, min_col=0, max_col=ZONE_1_END - 1
-                )
+                return self._forage_action(knowledge) if carrying_partial else self._green_explore_action(knowledge)
             knowledge["facing"] = "right" if target[0] > pos[0] else "left"
             return self._navigate_to_target(knowledge, target)
         if carrying_partial:
             return self._forage_action(knowledge)
         knowledge["green_forage_target"] = None
-        return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_1_END - 1)
+        return self._green_explore_action(knowledge)
 
 
 class YellowAgent(RobotAgent):
@@ -1446,7 +1646,7 @@ class YellowAgent(RobotAgent):
         inv = knowledge["inventory"]
         percepts = knowledge["percepts"]
         energy = knowledge.get("energy", AGENT_MAX_ENERGY)
-        idle_recharge_threshold = 85
+        idle_recharge_threshold = 90
         carry_recover_enter = 58
         carry_recover_exit = 72
         yellow_count = inv.count("yellow")
@@ -1531,8 +1731,14 @@ class YellowAgent(RobotAgent):
         ]
         nearest_yellow = min(known_yellow_positions, key=lambda p: self._manhattan(pos, p)) if known_yellow_positions else None
         has_known_yellow = bool(known_yellow_positions)
-        known_yellow_count = len(known_yellow_positions)
-        global_yellow_total = int(knowledge.get("global_waste_counts", {}).get("yellow", 0))
+        known_yellow_count = sum(
+            max(1, int(knowledge.get("known_waste", {}).get(p, {}).get("count", 1)))
+            for p in known_yellow_positions
+        )
+        # Teacher constraint: yellow relies on local perception + communicated
+        # positions only (no global waste count oracle).
+        global_yellow_total = known_yellow_count
+        knowledge["yellow_observed_total"] = int(global_yellow_total)
         prev_wait_msg_target = knowledge.get("yellow_wait_pair_last_msg_target")
         prev_wait_target = knowledge.get("yellow_wait_pair_last_target")
         prev_wait_global_total = knowledge.get("yellow_wait_pair_last_global_total")
@@ -1598,10 +1804,37 @@ class YellowAgent(RobotAgent):
             decon_candidates,
             key=lambda p: self._manhattan(pos, p),
         )
+        yellow_return_retarget = knowledge.get("yellow_return_retarget")
+        if isinstance(yellow_return_retarget, (list, tuple)) and len(yellow_return_retarget) == 2:
+            yellow_return_retarget = (int(yellow_return_retarget[0]), int(yellow_return_retarget[1]))
+        else:
+            yellow_return_retarget = None
+
+        if yellow_return_retarget is not None:
+            retarget_info = knowledge.get("known_waste", {}).get(yellow_return_retarget)
+            if (retarget_info is None
+                    or retarget_info.get("type") != "yellow"
+                    or not self._can_move_to(yellow_return_retarget[0], yellow_return_retarget[1], self.allowed_zones)
+                    or _is_avoided(yellow_return_retarget)
+                    or _is_no_repick(yellow_return_retarget)):
+                yellow_return_retarget = None
+
+        if yellow_return_retarget is not None and known_yellow_positions:
+            nearest_known_by_euclidean = min(
+                known_yellow_positions,
+                key=lambda point: self._euclidean(pos, point),
+            )
+            if (self._euclidean(pos, nearest_known_by_euclidean)
+                    < self._euclidean(pos, yellow_return_retarget)):
+                yellow_return_retarget = nearest_known_by_euclidean
+
+        knowledge["yellow_return_retarget"] = yellow_return_retarget
         if "red" in inv:
             primary_target = border_target
         elif yellow_count >= self.transform_cost:
             primary_target = pos
+        elif yellow_return_retarget is not None:
+            primary_target = yellow_return_retarget
         elif msg_target and self._can_move_to(msg_target[0], msg_target[1], self.allowed_zones):
             primary_target = msg_target
         elif nearest_yellow:
@@ -1615,6 +1848,16 @@ class YellowAgent(RobotAgent):
             decon_target=decon_target,
             role_prefix="yellow",
         )
+
+        if in_survival and "red" not in inv and yellow_count == 0 and known_yellow_positions:
+            yellow_return_retarget = min(
+                known_yellow_positions,
+                key=lambda point: self._euclidean(point, decon_target),
+            )
+            knowledge["yellow_return_retarget"] = yellow_return_retarget
+
+        if "red" in inv or yellow_count > 0:
+            knowledge["yellow_return_retarget"] = None
 
         if carrying_partial and "red" not in inv:
             if yellow_carry_mode == "recover":
@@ -2065,6 +2308,24 @@ class YellowAgent(RobotAgent):
             self._set_decision_debug(knowledge, "relay_drop_for_red")
             return ACTION_DROP
 
+        if (not in_survival
+                and "red" not in inv
+                and yellow_count == 0
+                and knowledge.get("yellow_return_retarget") is not None):
+            retarget = tuple(knowledge.get("yellow_return_retarget"))
+            if retarget == pos:
+                if (has_yellow_here
+                        and self.can_carry_more()
+                        and can_pickup_now
+                        and self.has_energy_for(ACTION_PICK_UP)):
+                    self._set_decision_debug(knowledge, "pickup_return_retarget_on_cell", target=retarget)
+                    return ACTION_PICK_UP
+                knowledge.get("known_waste", {}).pop(retarget, None)
+                knowledge["yellow_return_retarget"] = None
+            else:
+                self._set_decision_debug(knowledge, "seek_return_retarget", target=retarget)
+                return self._navigate_to_target(knowledge, retarget)
+
         # If carrying exactly one yellow, prioritize known yellow targets anywhere
         # in z1-z2 before corridor-only exploration.
         if (not in_survival
@@ -2074,10 +2335,14 @@ class YellowAgent(RobotAgent):
             if yellow_carry_mode == "recover":
                 self._set_decision_debug(knowledge, "carry_one_recover_recharge", target=decon_target)
                 return self._decontamination_action(knowledge)
+            pickup_second_transform_ready = (
+                can_pickup_for_transform_now
+                or (can_pickup_now and yellow_transform_window)
+            )
             if (nearest_yellow == pos
                     and has_yellow_here
                     and self.can_carry_more()
-                    and (can_pickup_now or can_pickup_for_transform_now)
+                    and pickup_second_transform_ready
                     and self.has_energy_for(ACTION_PICK_UP)):
                 self._set_decision_debug(knowledge, "pickup_second_yellow_on_cell", target=pos)
                 return ACTION_PICK_UP
@@ -2203,6 +2468,24 @@ class YellowAgent(RobotAgent):
                 return self._navigate_to_target(knowledge, stage_cell)
         else:
             knowledge["yellow_wait_pair_idle_ticks"] = 0
+
+        lone_pickup_guard = (
+            not in_survival
+            and "red" not in inv
+            and yellow_count == 0
+            and has_yellow_here
+            and known_yellow_count < self.transform_cost
+            and global_yellow_total < self.transform_cost
+            and not msg_target
+            and wait_pair_cooldown == 0
+        )
+        if lone_pickup_guard:
+            stage_cell = self._adjacent_staging_cell(knowledge, pos)
+            if stage_cell:
+                self._set_decision_debug(knowledge, "wait_pair_leave_lone_yellow", target=stage_cell)
+                return self._navigate_to_target(knowledge, stage_cell)
+            self._set_decision_debug(knowledge, "wait_pair_hold_lone_yellow")
+            return ACTION_IDLE
 
         if (not in_survival
                 and has_yellow_here
@@ -2407,26 +2690,46 @@ class RedAgent(RobotAgent):
         energy = knowledge.get("energy", AGENT_MAX_ENERGY)
         disposal_target = (GRID_COLS - 1, pos[1])
         msg_target = self._check_messages_for_target(knowledge)
-        nearest_red = self._nearest_known_waste(knowledge, "red")
-        has_known_red = self._has_known_waste_type(knowledge, "red")
+        red_unsafe_avoid_pos = knowledge.get("red_unsafe_avoid_pos")
+        red_unsafe_avoid_ttl = int(knowledge.get("red_unsafe_avoid_ttl", 0))
+        if red_unsafe_avoid_ttl > 0:
+            red_unsafe_avoid_ttl -= 1
+        knowledge["red_unsafe_avoid_ttl"] = red_unsafe_avoid_ttl
+        if red_unsafe_avoid_ttl <= 0:
+            knowledge["red_unsafe_avoid_pos"] = None
+            red_unsafe_avoid_pos = None
+        elif red_unsafe_avoid_pos is not None:
+            red_unsafe_avoid_pos = tuple(red_unsafe_avoid_pos)
+
+        def _is_red_unsafe_avoid(cell):
+            return (
+                red_unsafe_avoid_pos is not None
+                and red_unsafe_avoid_ttl > 0
+                and cell is not None
+                and cell == red_unsafe_avoid_pos
+            )
+
+        known_red_positions = [
+            p for p, info in knowledge.get("known_waste", {}).items()
+            if info.get("type") == "red"
+            and self._can_move_to(p[0], p[1], self.allowed_zones)
+            and not _is_red_unsafe_avoid(p)
+        ]
+        nearest_red = min(known_red_positions, key=lambda p: self._manhattan(pos, p)) if known_red_positions else None
+        has_known_red = bool(known_red_positions)
         known_red_count = sum(
-            1 for p, info in knowledge.get("known_waste", {}).items()
-            if info.get("type") == "red" and self._can_move_to(p[0], p[1], self.allowed_zones)
+            max(1, int(knowledge.get("known_waste", {}).get(p, {}).get("count", 1)))
+            for p in known_red_positions
         )
         has_red_here = pos in percepts and "red" in percepts[pos].get("waste", [])
         standby_target = (ZONE_2_END - 1, GRID_ROWS // 2)
-        global_red_total = int(knowledge.get("global_waste_counts", {}).get("red", 0))
+        observed_red_total = known_red_count + (1 if "red" in inv else 0)
+        knowledge["red_observed_total"] = int(observed_red_total)
         red_recharge_enter = AGENT_MAX_ENERGY - 8
         red_idle_mode = knowledge.get("red_idle_mode", "standby")
 
-        if global_red_total > 0:
+        if observed_red_total > 0:
             red_idle_mode = "standby"
-
-        if "red" not in inv and global_red_total == 0:
-            nearest_red = None
-            has_known_red = False
-            known_red_count = 0
-            msg_target = None
 
         decon_target = ((ZONE_2_END + (GRID_COLS - 1)) // 2, GRID_ROWS // 2)
         on_decon = bool(pos in percepts and percepts[pos].get("decontamination", False))
@@ -2529,6 +2832,9 @@ class RedAgent(RobotAgent):
         if nearest_red:
             if nearest_red == pos and has_red_here:
                 if not red_pickup_plan_safe:
+                    unsafe_target = nearest_red if nearest_red is not None else pos
+                    knowledge["red_unsafe_avoid_pos"] = unsafe_target
+                    knowledge["red_unsafe_avoid_ttl"] = max(int(knowledge.get("red_unsafe_avoid_ttl", 0)), 24)
                     self._set_decision_debug(knowledge, "defer_pickup_unsafe_red_plan", target=decon_target)
                     return self._decontamination_action(knowledge)
                 self._set_decision_debug(knowledge, "pickup_on_cell", target=nearest_red)
@@ -2546,7 +2852,7 @@ class RedAgent(RobotAgent):
                 and not has_red_here
                 and not has_known_red
                 and not msg_target):
-            if global_red_total == 0:
+            if observed_red_total == 0:
                 if red_idle_mode == "recharge":
                     if energy >= AGENT_MAX_ENERGY:
                         red_idle_mode = "standby"
@@ -2567,7 +2873,7 @@ class RedAgent(RobotAgent):
                     return self._navigate_to_target(knowledge, decon_target)
 
             knowledge["red_idle_mode"] = "standby"
-            hold_radius = 1 if global_red_total == 0 else 2
+            hold_radius = 1 if observed_red_total == 0 else 2
             if self._manhattan(pos, standby_target) <= hold_radius:
                 self._set_decision_debug(knowledge, "idle_standby")
                 return ACTION_IDLE

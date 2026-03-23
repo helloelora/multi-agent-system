@@ -17,7 +17,7 @@ import random as _rand
 
 ASSET_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
 
-DEFAULT_DESIGN = "claude"
+DEFAULT_DESIGN = "mech"
 
 
 # =============================================================================

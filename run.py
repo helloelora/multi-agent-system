@@ -52,7 +52,6 @@ def _apply_settings(settings):
 
     config.INITIAL_GREEN_WASTE = settings["initial_waste"]
     config.RADIATION_SPAWN_INTERVAL = settings["spawn_interval"]
-    config.GLOBAL_KNOWLEDGE = bool(settings.get("global_knowledge", config.GLOBAL_KNOWLEDGE))
 
 
 def _print_step_debug(model):

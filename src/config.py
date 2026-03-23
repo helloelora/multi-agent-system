@@ -220,17 +220,9 @@ COMMUNICATION_ENABLED = True            # Step 2: lightweight AUML-style communi
 
 
 # =============================================================================
-# 13.b KNOWLEDGE MODEL
-# =============================================================================
-
-GLOBAL_KNOWLEDGE = False                # True: agents perceive whole map; False: local perception + memory
-
-
-# =============================================================================
 # 14. DEBUG LOGGING
 # =============================================================================
 
 DEBUG_STEP_LOG_ENABLED = True           # print robot states in terminal each simulation tick
 DEBUG_STEP_LOG_EVERY = 1                # print every N ticks
-DEBUG_HEATMAPS_ENABLED = True           # show live robot visit heatmaps in sidebar
 DEBUG_STEP_LOG_COMPACT = True           # compact one-line per robot with reason/target/next

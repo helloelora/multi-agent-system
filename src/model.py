@@ -48,9 +48,9 @@ class RobotMission:
         self.human_color = human_color
         self.human_robot = None  # set during _setup if human_mode
 
-        # Communication: message board for inter-agent messaging
-        self.message_board = []   # messages posted this tick, delivered next tick
-        self._pending_messages = []  # buffer for next tick delivery
+        # Communication: directed messages (queued for next-tick delivery)
+        self._queued_messages = []
+        self._pending_messages = []
         self.total_messages_sent = 0
 
         # Grid data: each cell can hold multiple objects
@@ -178,20 +178,37 @@ class RobotMission:
 
     # -- Communication ---------------------------------------------------------
 
-    def _deliver_messages(self):
-        """Deliver pending messages to agent mailboxes."""
+    def post_message(self, msg):
+        """Queue one directed message for delivery on the next tick."""
         if not COMMUNICATION_ENABLED:
             return
-        # Deliver messages from previous tick
+        self._queued_messages.append(msg)
+
+    def _deliver_messages(self):
+        """Deliver directed pending messages to agent mailboxes."""
+        if not COMMUNICATION_ENABLED:
+            return
         for msg in self._pending_messages:
-            for robot in self.robots:
-                if robot.agent_id != msg["from"]:
-                    robot.mailbox.append(msg)
+            sender = msg.get("from")
+            to_agent_id = msg.get("to_agent_id")
+            to_role = msg.get("to_role")
+
+            if to_agent_id is not None:
+                for robot in self.robots:
+                    if robot.agent_id == to_agent_id and robot.agent_id != sender:
+                        robot.mailbox.append(msg)
+                continue
+
+            if to_role is not None:
+                for robot in self.robots:
+                    if robot.robot_type == to_role and robot.agent_id != sender:
+                        robot.mailbox.append(msg)
+
         self._pending_messages.clear()
-        # Move current tick messages to pending for next tick delivery
-        self._pending_messages = list(self.message_board)
-        self.total_messages_sent += len(self.message_board)
-        self.message_board.clear()
+
+        self._pending_messages = list(self._queued_messages)
+        self.total_messages_sent += len(self._queued_messages)
+        self._queued_messages.clear()
 
     # -- Percepts --------------------------------------------------------------
 
@@ -199,12 +216,8 @@ class RobotMission:
         """Return what the agent can see: contents of current and adjacent cells."""
         percepts = {}
         ax, ay = agent.x, agent.y
-        if _cfg.GLOBAL_KNOWLEDGE:
-            xs = range(GRID_COLS)
-            ys = range(GRID_ROWS)
-        else:
-            xs = range(max(0, ax - 1), min(GRID_COLS, ax + 2))
-            ys = range(max(0, ay - 1), min(GRID_ROWS, ay + 2))
+        xs = range(max(0, ax - 1), min(GRID_COLS, ax + 2))
+        ys = range(max(0, ay - 1), min(GRID_ROWS, ay + 2))
 
         for nx in xs:
             for ny in ys:
