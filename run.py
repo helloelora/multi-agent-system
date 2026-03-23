@@ -14,7 +14,7 @@ from datetime import datetime
 import pygame
 import src.config as config
 from src.config import (
-    WINDOW_WIDTH, WINDOW_HEIGHT, FPS, GAME_TITLE, AGENT_TICK_RATE,
+    WINDOW_WIDTH, WINDOW_HEIGHT, FPS, GAME_TITLE,
     CELL_SIZE, COLOR_GREEN_WASTE, COLOR_YELLOW_WASTE, COLOR_RED_WASTE,
     SOUND_ENABLED,
 )
@@ -51,9 +51,7 @@ def _apply_settings(settings):
     human_color = settings.get("human_color")
 
     config.INITIAL_GREEN_WASTE = settings["initial_waste"]
-    config.MAX_RADIATION_THRESHOLD = settings["max_radiation"]
     config.RADIATION_SPAWN_INTERVAL = settings["spawn_interval"]
-    config.AGENT_TICK_RATE = settings["tick_rate"]
     config.GLOBAL_KNOWLEDGE = bool(settings.get("global_knowledge", config.GLOBAL_KNOWLEDGE))
 
 

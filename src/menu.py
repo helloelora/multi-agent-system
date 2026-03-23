@@ -14,8 +14,8 @@ import math
 from src.config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, CELL_SIZE,
     BG_COLOR, HUD_BG_COLOR, TEXT_COLOR,
-    INITIAL_GREEN_WASTE, MAX_RADIATION_THRESHOLD,
-    RADIATION_SPAWN_INTERVAL, AGENT_TICK_RATE,
+    INITIAL_GREEN_WASTE,
+    RADIATION_SPAWN_INTERVAL,
     GLOBAL_KNOWLEDGE,
 )
 from src.sprites import (
@@ -75,25 +75,19 @@ class StartMenu:
         # Settings (mutable copies of config defaults)
         self._settings = {
             "initial_waste": INITIAL_GREEN_WASTE,
-            "max_radiation": MAX_RADIATION_THRESHOLD,
             "spawn_interval": RADIATION_SPAWN_INTERVAL,
-            "tick_rate":    AGENT_TICK_RATE,
             "global_knowledge": GLOBAL_KNOWLEDGE,
         }
         self._setting_ranges = {
             "initial_waste": (5, 50),
-            "max_radiation": (30, 200),
             "spawn_interval": (30, 300),
-            "tick_rate":    (4, 30),
         }
         self._setting_labels = {
             "initial_waste": "Initial Green Waste",
-            "max_radiation": "Max Radiation",
             "spawn_interval": "Spawn Interval",
-            "tick_rate":    "Agent Tick Rate",
         }
         self._setting_order = [
-            "initial_waste", "max_radiation", "spawn_interval", "tick_rate",
+            "initial_waste", "spawn_interval",
         ]
 
     # ── public entry point ──────────────────────────────────────────────
