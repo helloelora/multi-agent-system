@@ -99,6 +99,66 @@ def _print_step_debug(model):
         )
 
 
+class RunLogger:
+    """Logs every tick's state to output/runXXX/log.txt for post-run analysis."""
+
+    def __init__(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        output_dir = os.path.join(base_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        # Find next run number
+        existing = [d for d in os.listdir(output_dir) if d.startswith("run") and d[3:].isdigit()]
+        run_num = max((int(d[3:]) for d in existing), default=0) + 1
+        self.run_dir = os.path.join(output_dir, f"run{run_num:03d}")
+        os.makedirs(self.run_dir, exist_ok=True)
+        self.log_path = os.path.join(self.run_dir, "log.txt")
+        self._file = open(self.log_path, "w", encoding="utf-8")
+        self._file.write(f"# Run {run_num:03d} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        self._file.write(f"# GLOBAL_KNOWLEDGE={config.GLOBAL_KNOWLEDGE} INITIAL_GREEN={config.INITIAL_GREEN_WASTE}\n\n")
+
+    def log_tick(self, model):
+        f = self._file
+        gc = sum(1 for wl in model.waste_map.values() for w in wl if w.waste_type == "green")
+        yc = sum(1 for wl in model.waste_map.values() for w in wl if w.waste_type == "yellow")
+        rc = sum(1 for wl in model.waste_map.values() for w in wl if w.waste_type == "red")
+        f.write(f"[T{model.tick:04d}] waste=g{gc}/y{yc}/r{rc} disposed={model.waste_disposed}\n")
+        for robot in sorted(model.robots, key=lambda r: r.agent_id):
+            k = robot.knowledge
+            inv_str = ",".join(robot.inventory) if robot.inventory else "-"
+            target = k.get("decision_target")
+            known_types = {}
+            for info in k.get("known_waste", {}).values():
+                t = info.get("type", "?")
+                known_types[t] = known_types.get(t, 0) + 1
+            known_str = "/".join(f"{t}:{c}" for t, c in sorted(known_types.items())) or "-"
+            dropped = k.get("dropped_waste")
+            dropped_str = f" dropped={dropped['pos']}" if dropped else ""
+            f.write(
+                f"  {robot.robot_type[0].upper()}{robot.agent_id} pos={robot.pos} "
+                f"e={robot.energy:>5.1f} inv=[{inv_str}] "
+                f"act={k.get('decision_reason', '?'):<20} "
+                f"tgt={target if target else '-'} "
+                f"known=[{known_str}]{dropped_str}\n"
+            )
+
+    def log_end(self, model, reason="end"):
+        g = model.pipeline_stats.get("green", {})
+        y = model.pipeline_stats.get("yellow", {})
+        r = model.pipeline_stats.get("red", {})
+        self._file.write(
+            f"\n=== END ({reason}) tick={model.tick} disposed={model.waste_disposed} ===\n"
+            f"Green:  pickups={g.get('pickups',0)} transforms={g.get('transforms',0)} deliveries={g.get('deliveries',0)}\n"
+            f"Yellow: pickups={y.get('pickups',0)} transforms={y.get('transforms',0)} deliveries={y.get('deliveries',0)}\n"
+            f"Red:    pickups={r.get('pickups',0)} disposals={r.get('disposals',0)}\n"
+        )
+        self._file.close()
+        print(f"Run log saved to: {self.log_path}")
+
+    def close(self):
+        if not self._file.closed:
+            self._file.close()
+
+
 def _append_intelligence_run_log(model, run_mode, reason):
     """Append one concise run-summary entry to reports/intelligence_log.md."""
     try:
@@ -160,6 +220,7 @@ def main():
         # Create model & renderer with chosen design
         model = RobotMission(human_mode=human_mode, human_color=human_color)
         renderer = Renderer(screen, robot_design=design)
+        run_logger = RunLogger()
 
         paused = False
         speed = 1
@@ -188,6 +249,9 @@ def main():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+
+                elif event.type == pygame.MOUSEWHEEL:
+                    renderer.handle_scroll(event.y)
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_q:
@@ -226,14 +290,17 @@ def main():
                         if not run_summary_logged:
                             _append_intelligence_run_log(model, run_mode, reason="main_menu")
                             run_summary_logged = True
+                        run_logger.log_end(model, reason="main_menu")
                         go_to_menu = True
                     elif event.key == pygame.K_r:
                         if not run_summary_logged:
                             _append_intelligence_run_log(model, run_mode, reason="restart")
                             run_summary_logged = True
+                        run_logger.log_end(model, reason="restart")
                         model = RobotMission(
                             human_mode=human_mode,
                             human_color=human_color)
+                        run_logger = RunLogger()
                         renderer._agent_positions.clear()
                         frame_count = 0
                         speed = 1
@@ -286,6 +353,7 @@ def main():
                 if frame_count % ticks_per_frame == 0:
                     model.step()
                     _print_step_debug(model)
+                    run_logger.log_tick(model)
                     if run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
                         step_budget = max(0, step_budget - 1)
 
@@ -311,6 +379,7 @@ def main():
 
                     if model.game_over and not run_summary_logged:
                         _append_intelligence_run_log(model, run_mode, reason="game_over")
+                        run_logger.log_end(model, reason="game_over")
                         run_summary_logged = True
 
             # Game over sound
