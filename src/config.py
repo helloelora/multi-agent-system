@@ -189,7 +189,7 @@ Z2_SPAWN_AFTER_TICK = 500              # after this tick, yellow waste spawns in
 
 DECISION_INTENTION_HOLD_TICKS = 3       # keep chosen intention for at least N ticks
 DECISION_SWITCH_MARGIN = 2.0            # switch only if new score is better by this margin
-KNOWLEDGE_WASTE_TTL = 40                # ticks before forgetting unseen waste location
+KNOWLEDGE_WASTE_TTL = 35                # ticks before forgetting unseen waste location
 STUCK_REPLAN_TICKS = 4                  # force replanning when no progress
 INTENTION_SWITCH_COOLDOWN_TICKS = 3     # minimum ticks before switching intention again
 RECENT_POS_WINDOW = 6                   # recent positions tracked to penalize back-and-forth
