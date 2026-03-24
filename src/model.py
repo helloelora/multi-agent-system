@@ -61,6 +61,13 @@ class RobotMission:
 
         self.robots = []
 
+        # Pipeline stats: pickups/transforms/deliveries per agent type
+        self.pipeline_stats = {
+            "green": {"pickups": 0, "transforms": 0, "deliveries": 0},
+            "yellow": {"pickups": 0, "transforms": 0, "deliveries": 0},
+            "red": {"pickups": 0, "transforms": 0, "disposals": 0},
+        }
+
         # Analytics history
         self.history = {
             "tick": [],
