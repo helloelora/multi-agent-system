@@ -359,10 +359,12 @@ class RobotMission:
             pos = agent.pos
             if agent.robot_type == "red" and pos in self.disposal_zones:
                 # Dispose of red waste
+                disposed_count = agent.inventory.count("red")
                 while "red" in agent.inventory:
                     agent.inventory.remove("red")
                     self.waste_disposed += 1
                     self.score += 100
+                self.pipeline_stats["red"]["disposals"] += disposed_count
                 self.events.append(("dispose", pos, "red"))
             else:
                 # Normal behavior: drop transformed output only.
@@ -390,6 +392,11 @@ class RobotMission:
                     agent.inventory.remove(wtype)
                     waste = Waste(drop_pos[0], drop_pos[1], wtype, created_at=self.tick)
                     self.waste_map.setdefault(drop_pos, []).append(waste)
+                    # Track deliveries of output waste
+                    if agent.robot_type in self.pipeline_stats:
+                        output = getattr(agent, "output_waste", None)
+                        if output and wtype == output:
+                            self.pipeline_stats[agent.robot_type]["deliveries"] += 1
 
                 if "force_drop_all" in agent.knowledge:
                     agent.knowledge["force_drop_all"] = False
