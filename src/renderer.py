@@ -167,6 +167,8 @@ class Renderer:
             else:
                 self._draw_game_over(model)
 
+    # ── Grid drawing ─────────────────────────────────────────────────────
+
     def _draw_grid(self, model, anim_frame):
         gx = self.grid_offset_x + self._shake_offset[0]
         gy = self.grid_offset_y + self._shake_offset[1]
@@ -299,16 +301,14 @@ class Renderer:
                 start_x = sx + (CELL_SIZE - total_width) // 2
                 for i in range(min(carry, 8)):
                     wtype = robot.inventory[i] if i < len(robot.inventory) else "green"
-                    color = {
-                        "green": COLOR_GREEN_WASTE,
-                        "yellow": COLOR_YELLOW_WASTE,
-                        "red": COLOR_RED_WASTE,
-                    }.get(wtype, (200, 200, 200))
+                    color = _WASTE_COLORS.get(wtype, (200, 200, 200))
                     pygame.draw.circle(self.screen, color,
                                        (start_x + i * 5 + 2, dot_y), 2)
                 if carry > 8:
                     plus = self.font.render(f"+{carry - 8}", True, (255, 255, 255))
                     self.screen.blit(plus, (start_x + 42, dot_y - 6))
+
+    # ── HUD ──────────────────────────────────────────────────────────────
 
     def _draw_hud(self, model):
         # HUD background
