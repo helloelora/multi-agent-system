@@ -327,6 +327,9 @@ class RobotMission:
                     if w.waste_type == agent.target_waste:
                         agent.inventory.append(w.waste_type)
                         self.events.append(("pickup", pos, w.waste_type))
+                        # Track pipeline stats
+                        if agent.robot_type in self.pipeline_stats:
+                            self.pipeline_stats[agent.robot_type]["pickups"] += 1
                         wastes.remove(w)
                         if not wastes:
                             del self.waste_map[pos]
@@ -340,6 +343,7 @@ class RobotMission:
                         agent.inventory.remove("green")
                     agent.inventory.append("yellow")
                     self.events.append(("transform", agent.pos, "yellow"))
+                    self.pipeline_stats["green"]["transforms"] += 1
                     count -= GREEN_TO_YELLOW_COST
             elif agent.robot_type == "yellow":
                 count = agent.inventory.count("yellow")
@@ -348,6 +352,7 @@ class RobotMission:
                         agent.inventory.remove("yellow")
                     agent.inventory.append("red")
                     self.events.append(("transform", agent.pos, "red"))
+                    self.pipeline_stats["yellow"]["transforms"] += 1
                     count -= YELLOW_TO_RED_COST
 
         elif action == ACTION_DROP:
