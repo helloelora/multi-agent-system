@@ -626,15 +626,7 @@ class RobotAgent:
 
         # Cost to get back to nearest decon from the FINAL position (not current pos)
         # Find decon nearest to the final waypoint, not the agent's current position
-        known_decon = list(knowledge.get("known_decontamination", set()))
-        if not known_decon:
-            mid_row = GRID_ROWS // 2
-            if 1 in self.allowed_zones:
-                known_decon.append(((0 + (ZONE_1_END - 1)) // 2, mid_row))
-            if 2 in self.allowed_zones:
-                known_decon.append(((ZONE_1_END + (ZONE_2_END - 1)) // 2, mid_row))
-            if 3 in self.allowed_zones:
-                known_decon.append(((ZONE_2_END + (GRID_COLS - 1)) // 2, mid_row))
+        known_decon = self._all_decon_candidates(knowledge)
         if known_decon:
             nearest_return_decon = min(known_decon, key=lambda p: self._manhattan(current_pos, p))
             ret_inv = return_inv if return_inv is not None else []
