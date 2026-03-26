@@ -1,0 +1,260 @@
+# Run 016 — 2026-03-26 23:17:59
+# GLOBAL_KNOWLEDGE=False INITIAL_GREEN=15
+
+[T0001] waste=g15/y0/r0 disposed=0
+  G0 pos=(6, 4) e= 99.0 inv=[-] act=explore              tgt=- known=[-]
+  Y1 pos=(17, 17) e= 99.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(24, 5) e= 99.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0002] waste=g15/y0/r0 disposed=0
+  G0 pos=(6, 3) e= 98.0 inv=[-] act=explore              tgt=- known=[-]
+  Y1 pos=(16, 17) e= 98.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(23, 5) e= 98.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0003] waste=g15/y0/r0 disposed=0
+  G0 pos=(5, 3) e= 97.0 inv=[-] act=explore              tgt=- known=[green:1]
+  Y1 pos=(15, 17) e= 97.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(22, 5) e= 97.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0004] waste=g15/y0/r0 disposed=0
+  G0 pos=(4, 3) e= 96.0 inv=[-] act=seek                 tgt=(4, 3) known=[green:1]
+  Y1 pos=(14, 17) e= 96.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(21, 5) e= 96.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0005] waste=g14/y0/r0 disposed=0
+  G0 pos=(4, 3) e= 94.0 inv=[green] act=pickup               tgt=(4, 3) known=[-]
+  Y1 pos=(14, 16) e= 95.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(20, 5) e= 95.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0006] waste=g14/y0/r0 disposed=0
+  G0 pos=(3, 3) e= 92.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(13, 16) e= 94.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(19, 5) e= 94.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0007] waste=g14/y0/r0 disposed=0
+  G0 pos=(2, 3) e= 90.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(12, 16) e= 93.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(18, 5) e= 93.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0008] waste=g14/y0/r0 disposed=0
+  G0 pos=(2, 2) e= 88.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(12, 15) e= 92.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(17, 5) e= 92.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0009] waste=g14/y0/r0 disposed=0
+  G0 pos=(2, 1) e= 86.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(12, 14) e= 91.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(16, 5) e= 91.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0010] waste=g14/y0/r0 disposed=0
+  G0 pos=(3, 1) e= 84.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(12, 13) e= 90.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(15, 5) e= 90.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0011] waste=g14/y0/r0 disposed=0
+  G0 pos=(4, 1) e= 82.0 inv=[green] act=explore              tgt=- known=[green:1]
+  Y1 pos=(12, 12) e= 89.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(14, 5) e= 89.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0012] waste=g14/y0/r0 disposed=0
+  G0 pos=(4, 0) e= 80.0 inv=[green] act=seek                 tgt=(5, 0) known=[green:1]
+  Y1 pos=(11, 12) e= 88.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(13, 5) e= 88.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0013] waste=g14/y0/r0 disposed=0
+  G0 pos=(5, 0) e= 78.0 inv=[green] act=seek                 tgt=(5, 0) known=[green:1]
+  Y1 pos=(10, 12) e= 87.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(12, 5) e= 87.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0014] waste=g13/y0/r0 disposed=0
+  G0 pos=(5, 0) e= 75.0 inv=[green,green] act=pickup               tgt=(5, 0) known=[-]
+  Y1 pos=(9, 12) e= 86.0 inv=[-] act=patrol_border        tgt=- known=[green:2]
+  R2 pos=(11, 5) e= 86.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0015] waste=g13/y0/r0 disposed=0
+  G0 pos=(5, 0) e= 70.8 inv=[yellow] act=transform            tgt=- known=[-]
+  Y1 pos=(9, 13) e= 85.0 inv=[-] act=patrol_border        tgt=- known=[green:2]
+  R2 pos=(10, 5) e= 85.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0016] waste=g13/y0/r0 disposed=0
+  G0 pos=(6, 0) e= 68.5 inv=[yellow] act=deliver_move         tgt=(9, 0) known=[green:1]
+  Y1 pos=(8, 13) e= 84.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(9, 5) e= 84.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0017] waste=g13/y0/r0 disposed=0
+  G0 pos=(7, 0) e= 66.2 inv=[yellow] act=deliver_move         tgt=(9, 0) known=[green:1]
+  Y1 pos=(8, 14) e= 83.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(9, 4) e= 83.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0018] waste=g13/y0/r0 disposed=0
+  G0 pos=(8, 0) e= 64.0 inv=[yellow] act=deliver_move         tgt=(9, 0) known=[green:2]
+  Y1 pos=(7, 14) e= 82.0 inv=[-] act=patrol_border        tgt=- known=[green:3]
+  R2 pos=(9, 3) e= 82.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0019] waste=g13/y0/r0 disposed=0
+  G0 pos=(9, 0) e= 61.8 inv=[yellow] act=deliver_move         tgt=(9, 0) known=[green:2]
+  Y1 pos=(6, 14) e= 81.0 inv=[-] act=patrol_border        tgt=- known=[green:3]
+  R2 pos=(9, 2) e= 81.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0020] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 0) e= 60.8 inv=[-] act=deliver_drop         tgt=(9, 0) known=[green:2/yellow:1]
+  Y1 pos=(6, 15) e= 80.0 inv=[-] act=patrol_border        tgt=- known=[green:4]
+  R2 pos=(8, 2) e= 80.0 inv=[-] act=assist_green         tgt=- known=[green:2]
+[T0021] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 1) e= 59.8 inv=[-] act=seek                 tgt=(9, 4) known=[green:3/yellow:1]
+  Y1 pos=(6, 14) e= 79.0 inv=[-] act=patrol_border        tgt=- known=[green:4]
+  R2 pos=(7, 2) e= 79.0 inv=[-] act=assist_green         tgt=- known=[green:3]
+[T0022] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 2) e= 58.8 inv=[-] act=seek                 tgt=(9, 4) known=[green:3/yellow:1]
+  Y1 pos=(6, 13) e= 78.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(6, 2) e= 78.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0023] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 3) e= 57.8 inv=[-] act=seek                 tgt=(9, 4) known=[green:4/yellow:1]
+  Y1 pos=(6, 12) e= 77.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(6, 3) e= 77.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0024] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 4) e= 56.8 inv=[-] act=seek                 tgt=(9, 4) known=[green:4/yellow:1]
+  Y1 pos=(6, 11) e= 76.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(5, 3) e= 76.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0025] waste=g12/y1/r0 disposed=0
+  G0 pos=(9, 4) e= 54.8 inv=[green] act=pickup               tgt=(9, 4) known=[green:3/yellow:1]
+  Y1 pos=(6, 10) e= 75.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(4, 3) e= 75.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0026] waste=g12/y1/r0 disposed=0
+  G0 pos=(9, 5) e= 52.8 inv=[green] act=seek                 tgt=(9, 11) known=[green:3/yellow:1]
+  Y1 pos=(6, 9) e= 74.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(3, 3) e= 74.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0027] waste=g12/y1/r0 disposed=0
+  G0 pos=(9, 6) e= 50.8 inv=[green] act=seek                 tgt=(9, 11) known=[green:4/yellow:1]
+  Y1 pos=(6, 8) e= 73.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(2, 3) e= 73.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0028] waste=g12/y1/r0 disposed=0
+  G0 pos=(8, 6) e= 48.8 inv=[green] act=seek                 tgt=(8, 7) known=[green:4/yellow:1]
+  Y1 pos=(6, 7) e= 72.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(2, 2) e= 72.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0029] waste=g12/y1/r0 disposed=0
+  G0 pos=(8, 7) e= 46.8 inv=[green] act=seek                 tgt=(8, 7) known=[green:4/yellow:1]
+  Y1 pos=(6, 6) e= 71.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(1, 2) e= 71.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0030] waste=g11/y1/r0 disposed=0
+  G0 pos=(8, 7) e= 43.8 inv=[green,green] act=pickup               tgt=(8, 7) known=[green:3/yellow:1]
+  Y1 pos=(6, 5) e= 70.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(1, 3) e= 70.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0031] waste=g11/y1/r0 disposed=0
+  G0 pos=(8, 7) e= 39.5 inv=[yellow] act=transform            tgt=- known=[green:3/yellow:1]
+  Y1 pos=(6, 4) e= 69.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(1, 4) e= 69.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:1]
+[T0032] waste=g11/y1/r0 disposed=0
+  G0 pos=(9, 7) e= 37.2 inv=[yellow] act=deliver_move         tgt=(9, 7) known=[green:3/yellow:1]
+  Y1 pos=(6, 3) e= 68.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(1, 5) e= 68.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0033] waste=g11/y2/r0 disposed=0
+  G0 pos=(9, 7) e= 36.2 inv=[-] act=deliver_drop         tgt=(9, 7) known=[green:3/yellow:2]
+  Y1 pos=(6, 2) e= 67.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(2, 5) e= 67.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0034] waste=g11/y2/r0 disposed=0
+  G0 pos=(9, 8) e= 35.2 inv=[-] act=seek                 tgt=(9, 11) known=[green:3/yellow:2]
+  Y1 pos=(6, 1) e= 66.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:1]
+  R2 pos=(3, 5) e= 66.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:1]
+[T0035] waste=g11/y2/r0 disposed=0
+  G0 pos=(9, 9) e= 34.2 inv=[-] act=seek                 tgt=(9, 11) known=[green:4/yellow:2]
+  Y1 pos=(6, 0) e= 65.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:2]
+  R2 pos=(4, 5) e= 65.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:2]
+[T0036] waste=g11/y2/r0 disposed=0
+  G0 pos=(8, 9) e= 33.2 inv=[-] act=survive_heal         tgt=- known=[green:4/yellow:2]
+  Y1 pos=(7, 0) e= 64.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:2]
+  R2 pos=(4, 6) e= 64.0 inv=[-] act=assist_green         tgt=- known=[green:3/yellow:2]
+[T0037] waste=g11/y2/r0 disposed=0
+  G0 pos=(7, 9) e= 32.2 inv=[-] act=survive_heal         tgt=- known=[green:4/yellow:2]
+  Y1 pos=(8, 0) e= 63.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:3/yellow:2]
+  R2 pos=(4, 7) e= 63.0 inv=[-] act=assist_green         tgt=- known=[green:4/yellow:2]
+[T0038] waste=g11/y2/r0 disposed=0
+  G0 pos=(6, 9) e= 31.2 inv=[-] act=survive_heal         tgt=- known=[green:4/yellow:2]
+  Y1 pos=(9, 0) e= 62.0 inv=[-] act=seek                 tgt=(9, 0) known=[green:4/yellow:2]
+  R2 pos=(3, 7) e= 62.0 inv=[-] act=assist_green         tgt=- known=[green:5/yellow:2]
+[T0039] waste=g11/y1/r0 disposed=0
+  G0 pos=(5, 9) e= 30.2 inv=[-] act=survive_heal         tgt=- known=[green:5/yellow:2]
+  Y1 pos=(9, 0) e= 59.8 inv=[yellow] act=pickup               tgt=(9, 0) known=[green:4/yellow:1]
+  R2 pos=(2, 7) e= 61.0 inv=[-] act=assist_green         tgt=- known=[green:5/yellow:2]
+[T0040] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 37.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:2]
+  Y1 pos=(9, 1) e= 57.5 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:5/yellow:1]
+  R2 pos=(2, 8) e= 60.0 inv=[-] act=assist_green         tgt=- known=[green:5/yellow:2]
+[T0041] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 45.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 2) e= 55.2 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:5/yellow:1]
+  R2 pos=(2, 9) e= 59.0 inv=[-] act=assist_green         tgt=- known=[green:6/yellow:1]
+[T0042] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 53.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 3) e= 53.0 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:5/yellow:1]
+  R2 pos=(2, 10) e= 58.0 inv=[-] act=assist_green         tgt=- known=[green:6/yellow:1]
+[T0043] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 61.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 4) e= 50.8 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:6/yellow:1]
+  R2 pos=(2, 11) e= 57.0 inv=[-] act=assist_green         tgt=- known=[green:6/yellow:1]
+[T0044] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 69.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 5) e= 48.5 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:6/yellow:1]
+  R2 pos=(2, 12) e= 56.0 inv=[-] act=assist_green         tgt=- known=[green:6/yellow:1]
+[T0045] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 77.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 6) e= 46.2 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:6/yellow:1]
+  R2 pos=(2, 13) e= 55.0 inv=[-] act=assist_green         tgt=- known=[green:7/yellow:1]
+[T0046] waste=g11/y1/r0 disposed=0
+  G0 pos=(4, 9) e= 85.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 7) e= 44.0 inv=[yellow] act=seek                 tgt=(9, 7) known=[green:6/yellow:1]
+  R2 pos=(1, 13) e= 54.0 inv=[-] act=assist_green         tgt=- known=[green:7/yellow:1]
+[T0047] waste=g11/y0/r0 disposed=0
+  G0 pos=(4, 9) e= 93.2 inv=[-] act=survive_heal         tgt=- known=[green:6/yellow:1]
+  Y1 pos=(9, 7) e= 40.5 inv=[yellow,yellow] act=pickup               tgt=(9, 7) known=[green:6]
+  R2 pos=(1, 14) e= 53.0 inv=[-] act=assist_green         tgt=- known=[green:7/yellow:1]
+[T0048] waste=g11/y0/r0 disposed=0
+  G0 pos=(4, 8) e= 92.2 inv=[-] act=seek                 tgt=(4, 8) known=[green:7/yellow:1]
+  Y1 pos=(9, 7) e= 34.9 inv=[red] act=transform            tgt=- known=[green:7]
+  R2 pos=(1, 15) e= 52.0 inv=[-] act=assist_green         tgt=- known=[green:7/yellow:1]
+[T0049] waste=g10/y0/r1 disposed=0
+  G0 pos=(4, 8) e= 90.2 inv=[green] act=pickup               tgt=(4, 8) known=[green:6]
+  Y1 pos=(9, 7) e= 33.9 inv=[-] act=survive_drop         tgt=- known=[green:7/red:1] dropped=(9, 7)
+  R2 pos=(1, 16) e= 51.0 inv=[-] act=assist_green         tgt=- known=[green:7]
+[T0050] waste=g10/y0/r1 disposed=0
+  G0 pos=(3, 8) e= 88.2 inv=[green] act=seek                 tgt=(3, 10) known=[green:6]
+  Y1 pos=(8, 7) e= 32.9 inv=[-] act=survive_heal         tgt=- known=[green:6/red:1] dropped=(9, 7)
+  R2 pos=(2, 16) e= 50.0 inv=[-] act=assist_green         tgt=- known=[green:7]
+[T0051] waste=g10/y0/r1 disposed=0
+  G0 pos=(3, 9) e= 86.2 inv=[green] act=seek                 tgt=(3, 10) known=[green:6]
+  Y1 pos=(7, 7) e= 31.9 inv=[-] act=survive_heal         tgt=- known=[green:5/red:1] dropped=(9, 7)
+  R2 pos=(3, 16) e= 49.0 inv=[-] act=assist_green         tgt=- known=[green:6]
+[T0052] waste=g10/y0/r1 disposed=0
+  G0 pos=(3, 10) e= 84.2 inv=[green] act=seek                 tgt=(3, 10) known=[green:5/red:1]
+  Y1 pos=(6, 7) e= 30.9 inv=[-] act=survive_heal         tgt=- known=[green:5/red:1] dropped=(9, 7)
+  R2 pos=(3, 15) e= 48.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:5/red:1]
+[T0053] waste=g9/y0/r1 disposed=0
+  G0 pos=(3, 10) e= 81.2 inv=[green,green] act=pickup               tgt=(3, 10) known=[green:4/red:1]
+  Y1 pos=(5, 7) e= 29.9 inv=[-] act=survive_heal         tgt=- known=[green:5/red:1] dropped=(9, 7)
+  R2 pos=(3, 14) e= 47.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:6/red:1]
+[T0054] waste=g9/y0/r1 disposed=0
+  G0 pos=(3, 10) e= 77.0 inv=[yellow] act=transform            tgt=- known=[green:4/red:1]
+  Y1 pos=(4, 7) e= 28.9 inv=[-] act=survive_heal         tgt=- known=[green:5/red:1] dropped=(9, 7)
+  R2 pos=(3, 13) e= 46.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:7/red:1]
+[T0055] waste=g9/y0/r1 disposed=0
+  G0 pos=(4, 10) e= 74.8 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:4/red:1]
+  Y1 pos=(4, 8) e= 27.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 12) e= 45.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:6/red:1]
+[T0056] waste=g9/y0/r1 disposed=0
+  G0 pos=(5, 10) e= 72.5 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:5/red:1]
+  Y1 pos=(4, 9) e= 34.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 11) e= 44.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:6/red:1]
+[T0057] waste=g9/y0/r1 disposed=0
+  G0 pos=(6, 10) e= 70.2 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:6/red:1]
+  Y1 pos=(4, 9) e= 42.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 10) e= 43.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:6/red:1]
+[T0058] waste=g9/y0/r1 disposed=0
+  G0 pos=(7, 10) e= 68.0 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:5/red:1]
+  Y1 pos=(4, 9) e= 50.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 9) e= 42.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:5/red:1]
+[T0059] waste=g9/y0/r1 disposed=0
+  G0 pos=(8, 10) e= 65.8 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:5/red:1]
+  Y1 pos=(4, 9) e= 58.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 8) e= 41.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:4/red:1]
+[T0060] waste=g9/y0/r1 disposed=0
+  G0 pos=(9, 10) e= 63.5 inv=[yellow] act=deliver_move         tgt=(9, 10) known=[green:5/red:1]
+  Y1 pos=(4, 9) e= 66.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(3, 7) e= 40.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:4/red:1]
+[T0061] waste=g9/y1/r1 disposed=0
+  G0 pos=(9, 10) e= 62.5 inv=[-] act=deliver_drop         tgt=(9, 10) known=[green:4/red:1/yellow:1]
+  Y1 pos=(4, 9) e= 74.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1] dropped=(9, 7)
+  R2 pos=(4, 7) e= 39.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:4/red:1]
+[T0062] waste=g8/y1/r1 disposed=0
+  G0 pos=(9, 10) e= 60.5 inv=[green] act=pickup               tgt=(9, 10) known=[green:4/red:1/yellow:1]
+  Y1 pos=(4, 9) e= 82.9 inv=[-] act=survive_heal         tgt=- known=[green:5/red:1] dropped=(9, 7)
+  R2 pos=(5, 7) e= 38.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:5/red:1]
+[T0063] waste=g8/y1/r1 disposed=0
+  G0 pos=(9, 11) e= 58.5 inv=[green] act=seek                 tgt=(9, 11) known=[green:4/red:1/yellow:1]
+  Y1 pos=(4, 9) e= 90.9 inv=[-] act=survive_heal         tgt=- known=[green:4/red:1/yellow:1] dropped=(9, 7)
+  R2 pos=(6, 7) e= 37.0 inv=[-] act=seek                 tgt=(9, 7) known=[green:4/red:1/yellow:1]
+
+=== END (restart) tick=63 disposed=0 ===
+Green:  pickups=7 transforms=3 deliveries=3
+Yellow: pickups=2 transforms=1 deliveries=1
+Red:    pickups=0 disposals=0
