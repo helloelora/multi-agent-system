@@ -7,3 +7,4 @@ dist/
 build/
 .env
 reports/intelligence_log.md
+commit-runs.sh
