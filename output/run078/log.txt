@@ -1,0 +1,8 @@
+# Run 078 — 2026-04-02 11:27:05
+# GLOBAL_KNOWLEDGE=False INITIAL_GREEN=15
+
+
+=== END (main_menu) tick=0 disposed=0 ===
+Green:  pickups=0 transforms=0 deliveries=0
+Yellow: pickups=0 transforms=0 deliveries=0
+Red:    pickups=0 disposals=0
