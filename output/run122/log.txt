@@ -1,0 +1,36 @@
+# Run 122 — 2026-04-07 23:56:23
+# GLOBAL_KNOWLEDGE=False INITIAL_GREEN=15
+
+[T0001] waste=g14/y0/r0 disposed=0
+  G0 pos=(8, 16) e= 98.0 inv=[green] act=pickup               tgt=(8, 16) known=[-]
+  Y1 pos=(15, 14) e= 99.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(22, 11) e= 99.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0002] waste=g14/y0/r0 disposed=0
+  G0 pos=(7, 16) e= 96.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(14, 14) e= 98.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(21, 11) e= 98.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0003] waste=g14/y0/r0 disposed=0
+  G0 pos=(6, 16) e= 94.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(13, 14) e= 97.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(20, 11) e= 97.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0004] waste=g14/y0/r0 disposed=0
+  G0 pos=(6, 15) e= 92.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(12, 14) e= 96.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(19, 11) e= 96.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0005] waste=g14/y0/r0 disposed=0
+  G0 pos=(6, 14) e= 90.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(11, 14) e= 95.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(18, 11) e= 95.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0006] waste=g14/y0/r0 disposed=0
+  G0 pos=(6, 13) e= 88.0 inv=[green] act=explore              tgt=- known=[-]
+  Y1 pos=(10, 14) e= 94.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(17, 11) e= 94.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0007] waste=g14/y0/r0 disposed=0
+  G0 pos=(6, 12) e= 86.0 inv=[green] act=explore              tgt=- known=[green:1]
+  Y1 pos=(10, 15) e= 93.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(16, 11) e= 93.0 inv=[-] act=assist_green         tgt=- known=[-]
+
+=== END (restart) tick=7 disposed=0 ===
+Green:  pickups=1 transforms=0 deliveries=0
+Yellow: pickups=0 transforms=0 deliveries=0
+Red:    pickups=0 disposals=0
