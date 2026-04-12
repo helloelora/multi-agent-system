@@ -1,0 +1,36 @@
+# Run 142 — 2026-04-12 20:32:57
+# GLOBAL_KNOWLEDGE=False INITIAL_GREEN=15
+
+[T0001] waste=g15/y0/r0 disposed=0
+  G0 pos=(8, 10) e= 99.0 inv=[-] act=seek                 tgt=(8, 9) known=[green:1]
+  Y1 pos=(12, 5) e= 99.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(28, 14) e= 99.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0002] waste=g15/y0/r0 disposed=0
+  G0 pos=(8, 9) e= 98.0 inv=[-] act=seek                 tgt=(8, 9) known=[green:2]
+  Y1 pos=(12, 6) e= 98.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(27, 14) e= 98.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0003] waste=g14/y0/r0 disposed=0
+  G0 pos=(8, 9) e= 96.0 inv=[green] act=pickup               tgt=(8, 9) known=[green:1]
+  Y1 pos=(13, 6) e= 97.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(26, 14) e= 97.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0004] waste=g14/y0/r0 disposed=0
+  G0 pos=(8, 8) e= 94.0 inv=[green] act=seek                 tgt=(8, 8) known=[green:1]
+  Y1 pos=(13, 5) e= 96.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(25, 14) e= 96.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0005] waste=g13/y0/r0 disposed=0
+  G0 pos=(8, 8) e= 91.0 inv=[green,green] act=pickup               tgt=(8, 8) known=[-]
+  Y1 pos=(13, 4) e= 95.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(24, 14) e= 95.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0006] waste=g13/y0/r0 disposed=0
+  G0 pos=(8, 8) e= 86.8 inv=[yellow] act=transform            tgt=- known=[-]
+  Y1 pos=(12, 4) e= 94.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(23, 14) e= 94.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0007] waste=g13/y0/r0 disposed=0
+  G0 pos=(9, 8) e= 84.5 inv=[yellow] act=deliver_move         tgt=(9, 8) known=[-]
+  Y1 pos=(12, 3) e= 93.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(22, 14) e= 93.0 inv=[-] act=assist_green         tgt=- known=[-]
+
+=== END (restart) tick=7 disposed=0 ===
+Green:  pickups=2 transforms=1 deliveries=0
+Yellow: pickups=0 transforms=0 deliveries=0
+Red:    pickups=0 disposals=0
