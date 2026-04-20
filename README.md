@@ -4,6 +4,8 @@
 **Course:** MAS 2026 - Multi-Agent Systems
 **Period:** 13/03/2026 - 20/04/2026
 
+![Game overview](19_robot_mission_MAS2026/pics/game.PNG)
+
 Agent-based simulation where three robot types cooperate to clean a radioactive
 grid. Green robots work in zone 1 and transform `green -> yellow`. Yellow robots
 shuttle between zone 1 and 2 and transform `yellow -> red`. Red robots carry
@@ -235,11 +237,37 @@ interval 90) and communication + energy + decontamination all enabled:
 - **Clearance.** Mission usually completes around tick 2000-2500; we observed
   full clearance in roughly 80% of runs. The remaining 20% fail by meltdown
   during the yellow bottleneck around tick 500 when zone-2 spawns kick in.
-- **Pickup attribution (3 runs averaged).** Green robot finds ~70% of its
-  pickups alone (zone 1 is small enough to scan); yellow robot flips to ~60%
-  alerted because most of its work comes from green's deliveries at the zone
-  border; red robot is ~80% alerted, as expected since it relies on yellow
-  dropping at the 2-3 border.
+- **Waste levels over time** (green / yellow / red counts live on the grid):
+
+  ![Waste count](19_robot_mission_MAS2026/pics/waste-count.PNG)
+
+  The sawtooth comes from the spawn-then-clear cycle: green waves trigger
+  yellow conversion which triggers red transport, each wave drawn lower as
+  the pipeline catches up.
+
+- **Robot life (energy) over time**, one curve per robot type:
+
+  ![Life by robot type](19_robot_mission_MAS2026/pics/life.PNG)
+
+  The periodic V-shape is the survival-mode hysteresis: each robot drains
+  while working, cuts back to its decon tile, refills, returns. The red
+  dashed line is `HEALTH_LOW_THRESHOLD`.
+
+- **Pickup attribution.** The sidebar bar chart separates, per robot,
+  pickups of blocks the robot discovered itself (filled bar) from blocks
+  it learned about through a message (outlined bar):
+
+  ![Pickups per robot](19_robot_mission_MAS2026/pics/pickups.PNG)
+
+  In this run: `G0` (green) picks up mostly blocks it finds itself (25 vs.
+  5) because zone 1 is small enough to sweep. `Y1` (yellow) is almost
+  entirely message-driven (1 vs. 13): it waits at the zone-1 border for
+  green to broadcast `need_pickup` after each delivery. `R2` (red) is 100%
+  alerted (0 vs. 6): it never sees yellow waste before yellow itself posts
+  a `need_pickup`. This is the shape we wanted from the communication
+  protocol - downstream agents should react to upstream deliveries, not
+  wander into zones they have no business scanning.
+
 - **Ablations we ran:**
   - `COMMUNICATION_ENABLED=False` drops clearance to ~40% and shifts all
     pickup bars to fully self-detected (no alerts possible).
