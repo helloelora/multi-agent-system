@@ -46,7 +46,7 @@ DISPOSAL_ZONE_COL = -1
 # =============================================================================
 
 # Starting conditions
-INITIAL_GREEN_WASTE = 15        # green waste lumps at start (placed in zone 1)
+INITIAL_GREEN_WASTE = 16        # green waste lumps at start (placed in zone 1). Must be even so every green pairs into a yellow.
 
 # Spawning
 RADIATION_SPAWN_INTERVAL = 90   # ticks between new green waste spawns

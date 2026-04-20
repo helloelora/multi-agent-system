@@ -222,8 +222,12 @@ branch alive on the repository for reference.
 
 ## Results
 
-With the default settings (15 initial green blocks, threshold 80, spawn
+With the default settings (16 initial green blocks, threshold 80, spawn
 interval 90) and communication + energy + decontamination all enabled:
+
+> Note: the initial count must be even. Each pair of greens transforms into
+> one yellow, so an odd count leaves one green that can never be disposed
+> and the success condition (`total_waste == 0`) is unreachable.
 
 - **Clearance.** Mission usually completes around tick 2000-2500; we observed
   full clearance in roughly 80% of runs. The remaining 20% fail by meltdown
