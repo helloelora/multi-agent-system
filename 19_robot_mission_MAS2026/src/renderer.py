@@ -1,13 +1,10 @@
 # =============================================================================
-# Group: [Your Group Number]
+# Group 19
 # Date: 2026-03-16
-# Members: [Names]
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-Pygame renderer with retro pixel-art aesthetic.
-Smooth agent movement, particle effects, detailed HUD and scrollable sidebar.
-"""
+"""Pygame renderer: agent tween, particles, HUD, scrollable sidebar."""
 
 import pygame
 import math
@@ -167,8 +164,6 @@ class Renderer:
             else:
                 self._draw_game_over(model)
 
-    # ── Grid drawing ─────────────────────────────────────────────────────
-
     def _draw_grid(self, model, anim_frame):
         gx = self.grid_offset_x + self._shake_offset[0]
         gy = self.grid_offset_y + self._shake_offset[1]
@@ -308,10 +303,7 @@ class Renderer:
                     plus = self.font.render(f"+{carry - 8}", True, (255, 255, 255))
                     self.screen.blit(plus, (start_x + 42, dot_y - 6))
 
-    # ── HUD ──────────────────────────────────────────────────────────────
-
     def _draw_hud(self, model):
-        # HUD background
         pygame.draw.rect(self.screen, HUD_BG_COLOR,
                          (0, 0, WINDOW_WIDTH, HUD_HEIGHT))
 
@@ -373,20 +365,17 @@ class Renderer:
                 glow_surf.fill((*bar_color, int(40 * pulse)))
                 self.screen.blit(glow_surf, (bar_x, bar_y - 2))
 
-    # ── Scrollable Sidebar ───────────────────────────────────────────────
-
     def _draw_sidebar(self, model):
         sb_x = self.grid_offset_x + GRID_COLS * CELL_SIZE + 16
         sb_y = HUD_HEIGHT + 8
         sb_w = SIDEBAR_WIDTH - 32
         sb_h = WINDOW_HEIGHT - sb_y - 8
 
-        # Panel background
         panel_rect = (sb_x - 8, sb_y, sb_w + 16, sb_h)
         pygame.draw.rect(self.screen, (28, 28, 40), panel_rect, border_radius=6)
         pygame.draw.rect(self.screen, (50, 50, 65), panel_rect, 1, border_radius=6)
 
-        # Render all sidebar content to a virtual surface, then blit with scroll
+        # Render sidebar content to a virtual surface, then blit with scroll
         content_h = self._measure_sidebar_content(model, sb_w)
         content_surface = pygame.Surface((sb_w, max(content_h, sb_h)), pygame.SRCALPHA)
         content_surface.fill((0, 0, 0, 0))
@@ -443,8 +432,8 @@ class Renderer:
         return y
 
     def _sb_draw_pickup_stats(self, surf, model, x, y, w):
-        """Grouped bar chart: per robot, self-detected pickups vs alerted pickups.
-        Ordered green → yellow → red. Solid fill = self, outlined = alerted."""
+        """Grouped bar chart: self-found vs alerted pickups per robot.
+        Order green -> yellow -> red. Solid = self, outlined = alerted."""
         self._surf_text(surf, "PICKUPS", x, y, self.font_large, TEXT_COLOR)
         y += 20
 
@@ -524,7 +513,7 @@ class Renderer:
         return y + chart_h
 
     def _draw_mini_chart_on_surface(self, surf, model, x, y, w, h, title, series, threshold=None):
-        """Draw a mini chart onto a surface (for scrollable sidebar)."""
+        """Mini chart drawn onto a scrollable surface."""
         self._surf_text(surf, title, x, y, self.font, (140, 140, 160))
         y += 16
 
@@ -579,8 +568,6 @@ class Renderer:
 
         return y + h
 
-    # ── Helpers ───────────────────────────────────────────────────────────
-
     def _surf_text(self, surf, text, x, y, font, color):
         """Render text onto an arbitrary surface."""
         rendered = font.render(text, True, color)
@@ -595,8 +582,6 @@ class Renderer:
         cx = sx + CELL_SIZE // 2
         cy = sy + CELL_SIZE // 2
         self.sprite_cache.particle_system.emit(cx, cy, color, count)
-
-    # ── Game over / success overlays ─────────────────────────────────────
 
     def _draw_human_highlight(self, model):
         """Draw a pulsing diamond highlight around the human-controlled robot."""
@@ -726,7 +711,6 @@ class Renderer:
         self.screen.blit(ctrl_txt, (x, bar_y + 7))
 
     def _draw_game_over(self, model):
-        # Animated dark overlay
         pulse = 0.5 + 0.2 * math.sin(self.frame_count * 0.05)
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
         overlay.fill((20, 0, 0, int(180 * pulse)))

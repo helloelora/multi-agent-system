@@ -1,24 +1,10 @@
 # =============================================================================
-# Group: [Your Group Number]
-# Date: 2026-03-16
-# Members: [Names]
+# Group 19
+# Date: 2026-03-13
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-GAME CONFIGURATION
-==================
-Every tunable parameter lives here. Change these values to customize
-the simulation without touching any other code.
-
-Sections:
-  1. Display        - window size, frame rate, title
-  2. Grid & Zones   - grid dimensions, zone layout
-  3. Difficulty      - spawning, thresholds, ramp-up
-  4. Agents          - robot counts, carrying capacity, speed
-  5. Waste Rules     - transformation costs
-  6. Visuals         - colors, fonts, animation
-  7. Charts          - analytics display settings
-"""
+"""Tunable parameters for the simulation. Grouped by concern below."""
 
 
 # =============================================================================

@@ -1,22 +1,15 @@
 # =============================================================================
-# Group: [Your Group Number]
-# Date: 2026-03-16
-# Members: [Names]
+# Group 19
+# Date: 2026-03-15
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-Robot agent classes: GreenAgent, YellowAgent, RedAgent.
-Each follows the percepts -> deliberate -> do loop.
-Includes energy system and inter-agent communication.
+"""Robot agent classes: GreenAgent, YellowAgent, RedAgent.
 
-Decision logic uses a clean priority cascade:
-  1. SURVIVE    -> if critical energy, drop cargo and go heal
-  2. DELIVER    -> if carrying output, deliver to handoff border
-  3. TRANSFORM  -> if have enough input, transform now
-  4. PICKUP     -> if waste here, pick up (with energy safety check)
-  5. SEEK       -> if know about waste, navigate to it
-  6. PATROL     -> position near handoff zone where input arrives
-  7. EXPLORE    -> search zone for waste
+Each follows the percepts -> deliberate -> do loop with energy and
+inter-agent messaging. Decision priority:
+  1. SURVIVE  2. DELIVER  3. TRANSFORM  4. PICKUP
+  5. SEEK     6. PATROL   7. EXPLORE
 """
 
 import random
@@ -158,7 +151,6 @@ class RobotAgent:
     # -- Agent loop ------------------------------------------------------------
 
     def step_agent(self, model):
-        # Deliver messages from mailbox into knowledge
         self.knowledge["messages"] = list(self.mailbox)
         self.mailbox.clear()
 
@@ -187,8 +179,7 @@ class RobotAgent:
         prev_inv_size = len(self.inventory)
         new_percepts = model.do(self, action)
 
-        # Pickup attribution — only count each physical block once (by uid).
-        # Dropping + re-picking the same block does not double-count.
+        # Count each physical block once (by uid) so drop+repickup isn't double-counted.
         if action == ACTION_PICK_UP and len(self.inventory) > prev_inv_size:
             picked_uid = self.inventory_uids[-1] if self.inventory_uids else None
             counted = model.counted_waste_uids
@@ -212,7 +203,6 @@ class RobotAgent:
         self.knowledge["last_action"] = action
         self.anim_frame += 1
 
-        # Communication: broadcast useful info after acting
         self._broadcast(model, percepts)
 
     def _broadcast(self, model, percepts):
@@ -221,7 +211,7 @@ class RobotAgent:
             return
         pos = self.pos
 
-        # Share ALL visible waste (any type) so downstream/upstream agents know
+        # Share all visible waste so downstream/upstream agents know
         for p, contents in percepts.items():
             for wtype in contents.get("waste", []):
                 self.send_message(model, "waste_found", {"pos": p, "waste_type": wtype})
@@ -764,7 +754,7 @@ class RobotAgent:
         """Move into zone 1 and explore to broadcast green waste for the green agent."""
         pos = knowledge["pos"]
         if self._get_zone(pos[0]) == 1:
-            # Already in zone 1 — explore it (broadcasts happen automatically via _broadcast)
+            # Already in zone 1; broadcasts happen automatically via _broadcast
             return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_1_END - 1)
         # Navigate toward zone 1 center
         target = (ZONE_1_END // 2, GRID_ROWS // 2)
@@ -783,7 +773,6 @@ class RobotAgent:
             return False
         dist = self._manhattan(pos, nearest)
         if dist == 0:
-            # Already on decon — just drop
             return True
         carry_loss = self._carry_loss_for_inventory(inv)
         cost_per_step = ENERGY_COST_MOVE + carry_loss
@@ -799,7 +788,7 @@ class RobotAgent:
             return None
         drop_pos = dropped["pos"]
         pos = knowledge["pos"]
-        # Close enough to perceive the dropped waste — clear marker, let normal pickup handle it
+        # Close enough to perceive the dropped waste: clear marker, let normal pickup handle it
         if self._manhattan(pos, drop_pos) <= 1:
             knowledge["dropped_waste"] = None
             return None
@@ -844,7 +833,7 @@ class GreenAgent(RobotAgent):
                 if self._can_carry_to_decon(knowledge):
                     self._set_decision_debug(knowledge, "survive_carry_to_decon")
                     return self._decontamination_action(knowledge)
-                # Can't make it — drop here then go heal
+                # Can't make it; drop here then go heal
                 if self.has_energy_for(ACTION_DROP):
                     knowledge["dropped_waste"] = {"pos": pos, "types": list(inv)}
                     self._set_decision_debug(knowledge, "survive_drop")
@@ -891,7 +880,7 @@ class GreenAgent(RobotAgent):
             self._set_decision_debug(knowledge, "idle_recharge")
             return ACTION_IDLE
 
-        # 7. EXPLORE z1 — green should always search, waste may be undiscovered
+        # 7. EXPLORE z1: green should always search, waste may be undiscovered
         self._set_decision_debug(knowledge, "explore")
         return self._explore_with_target(knowledge, min_col=0, max_col=ZONE_1_END - 1)
 
@@ -991,9 +980,9 @@ class YellowAgent(RobotAgent):
             self._set_decision_debug(knowledge, "seek_msg", target=msg_target)
             return self._navigate_to_target(knowledge, msg_target)
 
-        # 5.5 WAIT for 2nd yellow — carrying 1 but no 2nd known: idle to conserve energy
-        #     Moving burns 2.25/tick (carry+move), idling burns 1.25/tick (carry only)
-        #     Messages will notify us when a 2nd yellow appears
+        # 5.5 WAIT for 2nd yellow: carrying 1 but no 2nd known, idle to conserve energy.
+        #     Moving burns 2.25/tick (carry+move), idling burns 1.25/tick (carry only).
+        #     Messages will notify us when a 2nd yellow appears.
         if yellow_count >= 1:
             self._set_decision_debug(knowledge, "wait_for_2nd")
             return ACTION_IDLE
@@ -1003,7 +992,7 @@ class YellowAgent(RobotAgent):
             self._set_decision_debug(knowledge, "idle_recharge")
             return ACTION_IDLE
 
-        # 7. PATROL border — check the z1/z2 border for forgotten yellow waste
+        # 7. PATROL border: check the z1/z2 border for forgotten yellow waste
         self._set_decision_debug(knowledge, "patrol_border")
         return self._explore_with_target(knowledge, min_col=self._SEEK_MIN_COL, max_col=self._SEEK_MAX_COL)
 

@@ -1,12 +1,10 @@
 # =============================================================================
-# Group: [Your Group Number]
-# Date: 2026-03-16
-# Members: [Names]
+# Group 19
+# Date: 2026-03-25
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-Main entry point for the Radioactive Waste Mission simulation.
-"""
+"""Entry point for the Radioactive Waste Mission simulation."""
 
 import sys
 import os
@@ -41,7 +39,7 @@ RUN_MODE_STEP5 = "step5"
 
 
 def _apply_settings(settings):
-    """Write menu settings into the config module so the model picks them up."""
+    """Push menu settings into the config module."""
     config.NUM_GREEN_ROBOTS = 1
     config.NUM_YELLOW_ROBOTS = 1
     config.NUM_RED_ROBOTS = 1
@@ -57,7 +55,7 @@ def _apply_settings(settings):
 
 
 def _print_step_debug(model):
-    """Print concise per-step robot state to terminal for debugging decisions."""
+    """Per-step robot state dump for debugging."""
     if not getattr(config, "DEBUG_STEP_LOG_ENABLED", False):
         return
     every = max(1, int(getattr(config, "DEBUG_STEP_LOG_EVERY", 1)))
@@ -105,14 +103,13 @@ class RunLogger:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         output_dir = os.path.join(base_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
-        # Find next run number
         existing = [d for d in os.listdir(output_dir) if d.startswith("run") and d[3:].isdigit()]
         run_num = max((int(d[3:]) for d in existing), default=0) + 1
         self.run_dir = os.path.join(output_dir, f"run{run_num:03d}")
         os.makedirs(self.run_dir, exist_ok=True)
         self.log_path = os.path.join(self.run_dir, "log.txt")
         self._file = open(self.log_path, "w", encoding="utf-8")
-        self._file.write(f"# Run {run_num:03d} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        self._file.write(f"# Run {run_num:03d} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         self._file.write(f"# GLOBAL_KNOWLEDGE={config.GLOBAL_KNOWLEDGE} INITIAL_GREEN={config.INITIAL_GREEN_WASTE}\n\n")
 
     def log_tick(self, model):
@@ -151,7 +148,7 @@ class RunLogger:
             f"Red:    pickups={r.get('pickups',0)} disposals={r.get('disposals',0)}\n"
         )
         self._file.close()
-        print(f"Run log saved to: {self.log_path}")
+        print(f"Log saved: {self.log_path}")
 
     def close(self):
         if not self._file.closed:
@@ -159,7 +156,7 @@ class RunLogger:
 
 
 def _append_intelligence_run_log(model, run_mode, reason):
-    """Append one concise run-summary entry to reports/intelligence_log.md."""
+    """Append a run-summary entry to reports/intelligence_log.md."""
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         log_path = os.path.join(base_dir, "reports", "intelligence_log.md")
@@ -195,20 +192,15 @@ def main():
     pygame.display.set_caption(GAME_TITLE)
     clock = pygame.time.Clock()
 
-    # Build sprite cache once (all designs are pre-rendered)
     sprite_cache = SpriteCache(CELL_SIZE, num_frames=16)
 
-    # Sound manager
     sound_mgr = SoundManager()
     game_over_sound_played = False
 
-    # ── Main loop: menu -> game -> menu ──────────────────────────────────
     while True:
-        # Show start menu
         start_menu = StartMenu(screen, sprite_cache)
         settings = start_menu.run()
         if settings is None:
-            # Player chose quit
             break
 
         design = settings.get("design", DEFAULT_DESIGN)
@@ -324,7 +316,6 @@ def main():
                         elif run_mode == RUN_MODE_STEP5:
                             step_budget += 5
                     elif event.key == pygame.K_e:
-                        # Export analytics report
                         report_dir = os.path.join(
                             os.path.dirname(os.path.abspath(__file__)),
                             "reports",
@@ -332,14 +323,13 @@ def main():
                         try:
                             exporter = DataExporter(model.history)
                             result_dir = exporter.generate_report(report_dir)
-                            print(f"Report exported to: {result_dir}")
+                            print(f"Exported: {result_dir}")
                         except Exception as e:
                             print(f"Export failed: {e}")
 
             if go_to_menu:
                 break
 
-            # Simulation stepping
             can_step_now = False
             if run_mode == RUN_MODE_AUTO:
                 can_step_now = True
@@ -356,7 +346,6 @@ def main():
                     if run_mode in (RUN_MODE_STEP, RUN_MODE_STEP5):
                         step_budget = max(0, step_budget - 1)
 
-                    # Process events for particle effects and sounds
                     for evt_type, pos, data in model.events:
                         color = EVENT_COLORS.get(data, (255, 255, 255))
                         if evt_type == "transform":
@@ -372,7 +361,6 @@ def main():
                             renderer.emit_particles(pos, color, count=8)
                             sound_mgr.play("mutate")
 
-                    # Geiger counter sound based on waste level
                     sound_mgr.play_geiger(
                         model.total_waste(), config.MAX_RADIATION_THRESHOLD)
 
@@ -387,24 +375,20 @@ def main():
                         try:
                             exporter = DataExporter(model.history)
                             result_dir = exporter.generate_report(report_dir)
-                            print(f"Report auto-saved to: {result_dir}")
+                            print(f"Saved: {result_dir}")
                         except Exception as e:
-                            print(f"Auto-save report failed: {e}")
+                            print(f"Save failed: {e}")
 
-            # Game over sound
             if model.game_over and not game_over_sound_played:
                 sound_mgr.play("gameover")
                 game_over_sound_played = True
 
-            # Render
             renderer.draw(model)
 
-            # Speed indicator
             if speed > 1:
                 spd_text = renderer.font.render(f"SPEED: {speed}x", True, (180, 180, 220))
                 screen.blit(spd_text, (WINDOW_WIDTH - 130, 8))
 
-            # Run mode indicator
             mode_label = {
                 RUN_MODE_AUTO: "",
                 RUN_MODE_STEP: "MODE: STEP | PRESS N",

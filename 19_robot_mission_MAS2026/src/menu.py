@@ -1,13 +1,10 @@
 # =============================================================================
-# Group: [Your Group Number]
-# Date: 2026-03-16
-# Members: [Names]
+# Group 19
+# Date: 2026-03-22
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-Menu system: start screen with robot design selector and settings,
-and a pause overlay with resume / restart / quit options.
-"""
+"""Start menu (design selector + settings) and pause overlay."""
 
 import pygame
 import math
@@ -23,7 +20,7 @@ from src.sprites import (
 )
 
 
-# ── Colour constants for the menus ──────────────────────────────────────────
+# Colour constants
 
 _DARK_BG = (16, 16, 24)
 _PANEL_BG = (28, 28, 42)
@@ -98,8 +95,6 @@ class StartMenu:
             "initial_waste", "max_radiation", "spawn_interval",
         ]
 
-    # ── public entry point ──────────────────────────────────────────────
-
     def run(self):
         """Block until the player starts or quits.
 
@@ -133,8 +128,6 @@ class StartMenu:
             self._draw(mouse_pos)
             pygame.display.flip()
             self.clock.tick(FPS)
-
-    # ── internal ────────────────────────────────────────────────────────
 
     def _result(self):
         return {
@@ -225,8 +218,6 @@ class StartMenu:
 
         return None
 
-    # ── drawing ─────────────────────────────────────────────────────────
-
     def _draw(self, mouse_pos):
         self.screen.fill(_DARK_BG)
 
@@ -239,19 +230,14 @@ class StartMenu:
         sub_rect = sub.get_rect(center=(WINDOW_WIDTH // 2, 90))
         self.screen.blit(sub, sub_rect)
 
-        # ── Design selector row ──
         self._draw_design_selector(mouse_pos)
 
-        # ── Live animated preview ──
         self._draw_preview()
 
-        # ── Mode selector (AI ONLY / HUMAN PLAYER) ──
         self._draw_mode_selector(mouse_pos)
 
-        # ── Settings panel ──
         self._draw_settings(mouse_pos)
 
-        # ── Hint ──
         blink = (self._anim_frame // 30) % 2 == 0
         if blink:
             hint = self.font_sm.render("Arrow keys to pick design  |  Enter to start  |  Q to quit", True, (120, 120, 140))
@@ -292,7 +278,7 @@ class StartMenu:
             self.screen.blit(label, lrect)
 
     def _draw_preview(self):
-        """Animated preview of the selected design, all 3 colours."""
+        """Preview of the selected design in all 3 colours."""
         design = self._design_names[self._selected_idx]
         preview_y = 240
         anim_f = (self._anim_frame // 6) % 16

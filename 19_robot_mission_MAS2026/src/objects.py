@@ -1,12 +1,10 @@
 # =============================================================================
-# Group: [Your Group Number]
-# Date: 2026-03-16
-# Members: [Names]
+# Group 19
+# Date: 2026-03-13
+# Members: Ali Dor, Elora Drouilhet
 # =============================================================================
 
-"""
-Non-behavioral objects: Waste, Radioactivity, WasteDisposalZone.
-"""
+"""Non-behavioral objects: Waste, Radioactivity, disposal and decon zones."""
 
 import random
 from src.config import ZONE_1_RAD_RANGE, ZONE_2_RAD_RANGE, ZONE_3_RAD_RANGE

@@ -7,4 +7,6 @@ dist/
 build/
 .env
 reports/intelligence_log.md
+reports/report_tick_*/
+output/run*/
 commit-runs.sh
