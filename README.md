@@ -136,9 +136,39 @@ Asynchronous mailbox, one-tick delay. Each agent can broadcast:
 - `need_pickup` - "I dropped a target output at P, downstream come get it"
 - `load_status` - periodic heartbeat with role, inventory count, intention, pos
 
-Messages are delivered next tick and merged into the recipient's
-`known_waste` map. When `GLOBAL_KNOWLEDGE` is off, this is the only way
-information propagates between agents.
+Every agent broadcasts **all waste types it can see**, not only its own
+target. So yellow walking through zone 1 reports the green wastes it spots,
+and red stumbling into zone 2 reports yellow wastes. Messages are delivered
+next tick and merged into the recipient's `known_waste` map. When
+`GLOBAL_KNOWLEDGE` is off, this is the only way information propagates
+between agents.
+
+### Downstream-scouts-for-upstream strategy
+
+A feature we designed deliberately: whenever a downstream robot has nothing
+urgent to do, it walks into the upstream zone and scouts for the upstream
+robot. It cannot pick those blocks up (wrong target type), but its
+perception ticks trigger `waste_found` broadcasts that the upstream robot
+consumes.
+
+- **Red** (`_assist_green`, `agents.py:753`) - priority 7 of its cascade.
+  When no red waste is known and nothing closer needs doing, red A*-routes
+  to the centre of zone 1 and explores there, broadcasting any green or
+  yellow waste it spots on the way and once inside.
+- **Yellow** - its default patrol range (`_SEEK_MIN_COL=6` to
+  `_SEEK_MAX_COL=14`) straddles the zone-1 / zone-2 border. Yellow enters
+  zone 1 naturally while waiting for green's deliveries, and broadcasts the
+  green wastes it passes over.
+
+This is why, in the pickup chart above, the **green bar has "alerted"
+entries at all** (5 out of 30). Those 5 pickups are green wastes that
+yellow or red saw first and broadcast. Without the strategy, green would
+have to find everything alone and the initial exploration phase would be
+measurably slower.
+
+The strategy is invisible on the yellow and red bars because those bars
+only count their *own* pickups of their *own* target type. Scouting
+contributes to the **green bar's alerted count**, not to the scouts' bars.
 
 ### Key safeguards
 
