@@ -66,8 +66,28 @@ python server.py
 | `M` | Return to main menu |
 | `Q` | Quit |
 
-Human-player keys (if enabled from the menu):
-arrows to move, `space` pickup, `T` transform, `F` drop, `I` idle.
+## Human-player mode
+
+From the start menu, you can switch from "AI ONLY" to "HUMAN PLAYER" and
+pick one of the three colours to control directly. The selected robot
+stops deliberating autonomously and waits for your keystrokes; the other
+two keep running their normal strategy and still treat you as a teammate
+for the communication protocol (you broadcast `waste_found` and
+`need_pickup` exactly like an AI would).
+
+Controls while playing as a robot:
+
+| Key | Action |
+|---|---|
+| Arrow keys | Move one cell |
+| `Space` | Pick up waste on the current cell |
+| `T` | Transform (2 greens -> 1 yellow, or 2 yellows -> 1 red) |
+| `F` | Drop one item from the inventory |
+| `I` | Idle (skip this tick, recover energy if on decontamination) |
+
+A pulsing diamond and an arrow above your robot make it easy to spot on
+the grid, and the bar at the bottom of the playfield shows your
+inventory, life, and control reminders.
 
 ## Start-menu settings
 
@@ -162,13 +182,21 @@ consumes.
 
 This is why, in the pickup chart above, the **green bar has "alerted"
 entries at all** (5 out of 30). Those 5 pickups are green wastes that
-yellow or red saw first and broadcast. Without the strategy, green would
-have to find everything alone and the initial exploration phase would be
-measurably slower.
+yellow or red saw first and broadcast.
 
 The strategy is invisible on the yellow and red bars because those bars
 only count their *own* pickups of their *own* target type. Scouting
 contributes to the **green bar's alerted count**, not to the scouts' bars.
+
+**Impact on mission time.** In our experiments, missions with all three
+robots scouting complete noticeably faster than the same seed run with
+yellow and red sitting idle at their patrol positions. The opening phase -
+where green has to locate the initial 16 blocks scattered across zone 1 -
+is the bottleneck: a single green robot sweeping column by column takes
+much longer than green plus two scouts feeding positions into its mailbox.
+Once the pipeline is primed (first yellows arriving at the border), the
+advantage narrows because yellow is busy and red takes over alone, but the
+head-start on the first wave shortens total run time by a visible margin.
 
 ### Key safeguards
 
