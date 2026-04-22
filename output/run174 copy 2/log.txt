@@ -1,0 +1,56 @@
+# Run 174 — 2026-04-18 23:44:05
+# GLOBAL_KNOWLEDGE=False INITIAL_GREEN=15
+
+[T0001] waste=g15/y0/r0 disposed=0
+  G0 pos=(5, 2) e= 99.0 inv=[-] act=seek                 tgt=(5, 3) known=[green:1]
+  Y1 pos=(12, 11) e= 99.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(28, 7) e= 99.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0002] waste=g15/y0/r0 disposed=0
+  G0 pos=(5, 3) e= 98.0 inv=[-] act=seek                 tgt=(5, 3) known=[green:1]
+  Y1 pos=(11, 11) e= 98.0 inv=[-] act=patrol_border        tgt=- known=[-]
+  R2 pos=(27, 7) e= 98.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0003] waste=g14/y0/r0 disposed=0
+  G0 pos=(5, 3) e= 96.0 inv=[green] act=pickup               tgt=(5, 3) known=[green:1]
+  Y1 pos=(11, 12) e= 97.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(26, 7) e= 97.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0004] waste=g13/y0/r0 disposed=0
+  G0 pos=(5, 3) e= 93.0 inv=[green,green] act=pickup               tgt=(5, 3) known=[-]
+  Y1 pos=(11, 13) e= 96.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(25, 7) e= 96.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0005] waste=g13/y0/r0 disposed=0
+  G0 pos=(5, 3) e= 88.8 inv=[yellow] act=transform            tgt=- known=[-]
+  Y1 pos=(10, 13) e= 95.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(24, 7) e= 95.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0006] waste=g13/y0/r0 disposed=0
+  G0 pos=(6, 3) e= 86.5 inv=[yellow] act=deliver_move         tgt=(9, 3) known=[-]
+  Y1 pos=(9, 13) e= 94.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(23, 7) e= 94.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0007] waste=g13/y0/r0 disposed=0
+  G0 pos=(7, 3) e= 84.2 inv=[yellow] act=deliver_move         tgt=(9, 3) known=[-]
+  Y1 pos=(8, 13) e= 93.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(22, 7) e= 93.0 inv=[-] act=assist_green         tgt=- known=[-]
+[T0008] waste=g13/y0/r0 disposed=0
+  G0 pos=(8, 3) e= 82.0 inv=[yellow] act=deliver_move         tgt=(9, 3) known=[green:1]
+  Y1 pos=(8, 14) e= 92.0 inv=[-] act=patrol_border        tgt=- known=[green:1]
+  R2 pos=(21, 7) e= 92.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0009] waste=g13/y0/r0 disposed=0
+  G0 pos=(9, 3) e= 79.8 inv=[yellow] act=deliver_move         tgt=(9, 3) known=[green:1]
+  Y1 pos=(7, 14) e= 91.0 inv=[-] act=patrol_border        tgt=- known=[green:2]
+  R2 pos=(20, 7) e= 91.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0010] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 3) e= 78.8 inv=[-] act=deliver_drop         tgt=(9, 3) known=[green:1/yellow:1]
+  Y1 pos=(6, 14) e= 90.0 inv=[-] act=patrol_border        tgt=- known=[green:3]
+  R2 pos=(19, 7) e= 90.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0011] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 4) e= 77.8 inv=[-] act=seek                 tgt=(9, 12) known=[green:1/yellow:1]
+  Y1 pos=(6, 13) e= 89.0 inv=[-] act=patrol_border        tgt=- known=[green:4]
+  R2 pos=(18, 7) e= 89.0 inv=[-] act=assist_green         tgt=- known=[green:1]
+[T0012] waste=g13/y1/r0 disposed=0
+  G0 pos=(9, 5) e= 76.8 inv=[-] act=seek                 tgt=(9, 12) known=[green:2/yellow:1]
+  Y1 pos=(6, 12) e= 88.0 inv=[-] act=seek                 tgt=(9, 3) known=[green:4/yellow:1]
+  R2 pos=(17, 7) e= 88.0 inv=[-] act=assist_green         tgt=- known=[green:2/yellow:1]
+
+=== END (restart) tick=12 disposed=0 ===
+Green:  pickups=2 transforms=1 deliveries=1
+Yellow: pickups=0 transforms=0 deliveries=0
+Red:    pickups=0 disposals=0
